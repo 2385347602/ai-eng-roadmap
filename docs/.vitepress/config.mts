@@ -5,6 +5,8 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   // 部署到 GitHub Pages 时由 CI 注入 BASE_PATH=/<仓库名>/
   base: process.env.BASE_PATH || '/',
+  // 本地临时构建可指定 OUT_DIR，避免清理旧产物
+  outDir: process.env.OUT_DIR || './.vitepress/dist',
   lang: 'zh-CN',
   title: 'AI 应用工程化',
   description: '前端转 AI 应用工程化 · 完整知识地图（21 章 / 671 个知识点）',
