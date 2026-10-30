@@ -78,6 +78,47 @@
 - **文件系统与工作区** <span class="prio prio-imp">重要</span> — 给 Agent 一个可读写的临时工作区，比全靠上下文传递更可靠。
 - **权限边界** <span class="prio prio-must">必须</span> — Agent 代表用户操作时，权限必须是"用户的权限"而非"系统的权限"。
 
+## MCP Server 开发（会用 ≠ 会做）
+
+前面讲了 MCP 是什么，但**面试问的是"你写过 MCP Server 吗"**。这一节补齐。
+
+- **最小 Server 结构** <span class="prio prio-must">必须</span> — 注册 server 信息 → 声明 capabilities → 实现 tool/resource handler → 连接 transport。三十行能跑起来一个。
+- **Tool 定义三要素** <span class="prio prio-must">必须</span> — name、description、inputSchema（JSON Schema）。**description 是给模型看的，要写清"什么时候用"。**
+- **返回值结构** <span class="prio prio-must">必须</span> — `content` 数组，每项有 type（text/image/resource）。**`isError` 标记很关键**，模型靠它判断要不要重试。
+- **Resource 与 Tool 的区别** <span class="prio prio-imp">重要</span> — Resource 是被动的、可读取的数据（URI 寻址）；Tool 是主动的、有副作用的操作。别把查询做成 Tool，那是 Resource。
+- **Prompts 能力** <span class="prio prio-opt">选学</span> — 服务端预置的提示模板，供客户端调用。
+- **stdio 传输** <span class="prio prio-must">必须</span> — 本地进程，通过标准输入输出通信。适合本地工具，不能用于远程。
+- **Streamable HTTP 传输** <span class="prio prio-must">必须</span> — 远程部署用，支持 SSE 流式响应和会话管理。
+- **能力协商** <span class="prio prio-imp">重要</span> — 初始化时双方声明支持的能力，客户端只能调服务端声明过的。
+- **进度通知与取消** <span class="prio prio-imp">重要</span> — 长任务要发 progress 通知；客户端取消要能中止服务端执行。
+- **认证** <span class="prio prio-must">必须</span> — 远程 Server 必须做认证（OAuth 或 token），并且**把调用者身份透传到业务逻辑**，否则权限无从谈起。
+- **MCP Inspector 调试** <span class="prio prio-must">必须</span> — 官方调试工具，能看到原始 JSON-RPC 消息。写 Server 必用。
+- **信任边界** <span class="prio prio-must">必须</span> — 第三方 Server 等于在你机器上跑任意代码。生产环境要白名单 + 审计。
+- **测试** <span class="prio prio-imp">重要</span> — 直接测 handler 函数（单元），再用 Inspector 测协议层（集成）。
+
+## Workflow 与持久化执行
+
+Agent 最容易翻车的地方不是"不会做"，是"做到一半挂了"。这一节解决它。
+
+- **状态机 vs 自由循环** <span class="prio prio-must">必须</span> — 生产环境优先状态机：每个状态允许的动作是枚举的，非法转移直接报错。自由循环只适合探索阶段。
+- **Checkpoint 的时机** <span class="prio prio-must">必须</span> — 每步执行完就存，不要等任务结束。存的内容是"完整可序列化的运行时状态"，不是日志。
+- **持久化执行（Durable Execution）** <span class="prio prio-must">必须</span> — 服务器重启后从最后一个 checkpoint 继续，而不是从头跑。Temporal / Inngest / LangGraph 都在解决这个。
+- **中断与恢复** <span class="prio prio-must">必须</span> — 暂停要能保存现场，恢复要能接着做。人工审批本质就是一次长时间中断。
+- **补偿（Compensation）** <span class="prio prio-imp">重要</span> — 已经执行了副作用但后续失败，要能撤销。比如发了邮件但后面步骤失败，要能发更正。
+- **幂等重放** <span class="prio prio-must">必须</span> — 从 checkpoint 恢复时，那一步可能已经执行过。必须靠幂等键保证不重复。
+- **状态版本兼容** <span class="prio prio-imp">重要</span> — 代码升级后旧 checkpoint 可能反序列化失败。要版本号 + 迁移。
+- **超时分层** <span class="prio prio-must">必须</span> — 步骤超时、任务总超时、审批超时（超时自动拒绝还是通过？要明确）。
+
+## Agent Skills
+
+- **Skill 是什么** <span class="prio prio-must">必须</span> — 把"做某类任务的方法"封装成可复用的文档 + 脚本 + 资源，模型按需加载。
+- **`SKILL.md` 结构** <span class="prio prio-must">必须</span> — 元信息（名称、触发条件）+ 操作步骤 + 注意事项 + 依赖资源。
+- **渐进披露（Progressive Disclosure）** <span class="prio prio-must">必须</span> — 先给模型看摘要，需要时再加载全文。**这是 Skill 相对"塞进 system prompt"的核心优势**——不占常驻上下文。
+- **触发条件怎么写** <span class="prio prio-must">必须</span> — 要写"什么情况下用"，不是"这是什么"。写不好就不会被触发。
+- **与 Function Calling / MCP 的区别** <span class="prio prio-must">必须</span> — Function Calling 是"调一个函数"，MCP 是"接一个工具服务"，Skill 是"教一套方法"。三者不互斥，常常一起用。
+- **脚本与资源** <span class="prio prio-imp">重要</span> — Skill 可以带可执行脚本，但要声明依赖和权限。
+- **版本与测试** <span class="prio prio-imp">重要</span> — Skill 改了要回归测试，否则会静默失效。
+
 ## 本章对应的面试题
 
 共 20 题，见 [15 · 面试题库 · E 组](/guide/15-interview#e-agent-20-题)。

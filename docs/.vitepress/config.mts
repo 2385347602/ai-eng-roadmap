@@ -3,9 +3,11 @@ import { defineConfig } from 'vitepress'
 // 部署到 GitHub Pages 时，把 base 改成 '/<仓库名>/'
 // 例如仓库叫 ai-eng-roadmap，就写 base: '/ai-eng-roadmap/'
 export default defineConfig({
+  // 部署到 GitHub Pages 时由 CI 注入 BASE_PATH=/<仓库名>/
+  base: process.env.BASE_PATH || '/',
   lang: 'zh-CN',
   title: 'AI 应用工程化',
-  description: '前端转 AI 应用工程化 · 完整知识地图（14 模块 / 479 个知识点）',
+  description: '前端转 AI 应用工程化 · 完整知识地图（21 章 / 671 个知识点）',
   cleanUrls: true,
   lastUpdated: true,
 
@@ -26,14 +28,24 @@ export default defineConfig({
 
     sidebar: [
       {
-        text: '第 0 层 · 定位',
+        text: '第 0 层 · 工程底座',
+        collapsed: false,
+        items: [
+          { text: '17 TypeScript 深入', link: '/guide/17-typescript' },
+          { text: '18 Node.js 后端工程', link: '/guide/18-node-backend' },
+          { text: '19 数据库与数据建模', link: '/guide/19-database' },
+          { text: '20 网络、系统与分布式', link: '/guide/20-network-system' },
+        ],
+      },
+      {
+        text: '第 1 层 · 定位',
         collapsed: false,
         items: [
           { text: '00 定位与认知', link: '/guide/00-orientation' },
         ],
       },
       {
-        text: '第 1 层 · 模型基础',
+        text: '第 2 层 · 模型基础',
         collapsed: false,
         items: [
           { text: '01 LLM 基础', link: '/guide/01-llm-basics' },
@@ -41,7 +53,7 @@ export default defineConfig({
         ],
       },
       {
-        text: '第 2 层 · 核心能力',
+        text: '第 3 层 · 核心能力',
         collapsed: false,
         items: [
           { text: '03 RAG 检索增强', link: '/guide/03-rag' },
@@ -49,7 +61,7 @@ export default defineConfig({
         ],
       },
       {
-        text: '第 3 层 · 模型适配',
+        text: '第 4 层 · 模型适配',
         collapsed: false,
         items: [
           { text: '05 微调与对齐', link: '/guide/05-finetune' },
@@ -57,7 +69,7 @@ export default defineConfig({
         ],
       },
       {
-        text: '第 4 层 · 工程化',
+        text: '第 5 层 · 工程化',
         collapsed: false,
         items: [
           { text: '07 评测 Evals', link: '/guide/07-evals' },
@@ -67,7 +79,7 @@ export default defineConfig({
         ],
       },
       {
-        text: '第 5 层 · 你的优势',
+        text: '第 6 层 · 你的优势',
         collapsed: false,
         items: [
           { text: '11 前端专有', link: '/guide/11-frontend' },
