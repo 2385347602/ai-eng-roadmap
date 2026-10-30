@@ -1,0 +1,116 @@
+/* 学习平台页面级样式（pageClass: learn-page 挂在 .Layout 上） */
+
+/* 课程页需要更宽的阅读区，知识地图页保持原样 */
+.learn-page .VPDoc .content-container {
+  max-width: 1080px;
+}
+.learn-page .VPDoc .container {
+  max-width: 1240px;
+}
+@media (min-width: 1180px) {
+  .learn-page .VPDoc .content-container {
+    max-width: 100%;
+  }
+}
+
+/* 课程页不用 VitePress 默认的 h1 间距与边框，由 LessonPlayer 自己控制 */
+.learn-page .vp-doc h1 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: inherit;
+  letter-spacing: normal;
+}
+
+/* markdown 里嵌组件时，去掉默认的段落间距干扰 */
+.learn-page .vp-doc > div > .lp,
+.learn-page .vp-doc > div > .dash,
+.learn-page .vp-doc > div > .rb {
+  margin-top: 0;
+}
+
+/* 深色模式下代码块背景与课程卡片协调 */
+.dark .learn-page {
+  --vp-c-bg-soft: #16181d;
+  --vp-c-bg-alt: #1b1e24;
+}
+
+/* 页面级小标题（markdown 里手写的 h2） */
+.learn-page .vp-doc h2 {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 34px;
+  font-size: 19px;
+}
+
+/* 学习中心页头 */
+.learn-hero {
+  padding: 8px 0 30px;
+  border-bottom: 1px solid var(--vp-c-divider);
+  margin-bottom: 30px;
+}
+.learn-hero-kicker {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vp-c-brand-1);
+  border: 1px solid var(--vp-c-brand-2);
+  border-radius: 4px;
+  padding: 3px 8px;
+  margin-bottom: 14px;
+}
+.learn-hero-title {
+  margin: 0 0 10px !important;
+  font-size: 32px !important;
+  line-height: 1.3 !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+}
+.learn-hero-sub {
+  margin: 0 0 20px;
+  font-size: 15.5px;
+  line-height: 1.85;
+  color: var(--vp-c-text-2);
+  max-width: 720px;
+}
+.learn-hero-links {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.learn-hero-a {
+  padding: 10px 20px;
+  border-radius: 8px;
+  background: var(--vp-c-brand-1);
+  color: #fff !important;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none !important;
+}
+.learn-hero-a:hover {
+  background: var(--vp-c-brand-2);
+}
+.learn-hero-b {
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-2) !important;
+  font-size: 13.5px;
+  text-decoration: none !important;
+}
+.learn-hero-b:hover {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1) !important;
+}
+
+/* 打印/导出时隐藏交互控件的提示 */
+@media print {
+  .learn-page .lp-side,
+  .learn-page .tutor,
+  .learn-page .nb {
+    display: none;
+  }
+}

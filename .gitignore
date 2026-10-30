@@ -3,8 +3,7 @@ dist
 docs/.vitepress/cache
 docs/.vitepress/dist
 docs/.vitepress/site-build
-docs/.vitepress/build-v3
-docs/.vitepress/build-v4
+docs/.vitepress/build-v*
 .DS_Store
 *.log
 .idea
@@ -13,4 +12,11 @@ docs/.vitepress/build-v4
 
 # 本地保留但不提交（PAT 缺 workflow scope）
 .github/workflows/
-docs/.vitepress/build-v5
+
+# 本地调试产物
+.shots/
+.playwright-mcp/
+
+# 导师服务的本地环境变量（绝不要提交 Key）
+.env
+.env.local

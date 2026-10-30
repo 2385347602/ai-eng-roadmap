@@ -21,14 +21,37 @@ export default defineConfig({
     lineNumbers: true,
   },
 
+  // 本地开发时把 /api 代理到导师服务，避免跨域
+  vite: {
+    server: {
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:8787',
+          changeOrigin: true,
+        },
+      },
+    },
+  },
+
   themeConfig: {
     nav: [
-      { text: '开始', link: '/guide/00-orientation' },
+      { text: '学习中心', link: '/learn/' },
+      { text: '错题本', link: '/learn/review' },
+      { text: '知识地图', link: '/guide/00-orientation' },
       { text: '学习路径', link: '/guide/13-path' },
-      { text: 'GitHub', link: 'https://github.com' },
+      { text: 'GitHub', link: 'https://github.com/2385347602/ai-eng-roadmap' },
     ],
 
     sidebar: [
+      {
+        text: '学习平台',
+        collapsed: false,
+        items: [
+          { text: '学习中心', link: '/learn/' },
+          { text: '第 1 课 · HTTP 请求生命周期', link: '/learn/01-http-lifecycle' },
+          { text: '错题本与笔记', link: '/learn/review' },
+        ],
+      },
       {
         text: '第 0 层 · 工程底座',
         collapsed: false,
