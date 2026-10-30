@@ -2,7 +2,7 @@
 
 给**前端转 AI 应用工程化**准备的一份完整知识清单，用 VitePress 搭成可检索的文档站。
 
-14 个模块 / 479 个知识点 / 每条标注优先级（必须 / 重要 / 选学）。
+24 章 / 986 个知识点 / 160 道面试题 / 3 个实战项目，每条标注优先级（必须 / 重要 / 选学）。
 
 ## 为什么是这份清单
 
@@ -13,7 +13,37 @@
 - **评测（12%）和可观测（5%）权重不低** —— 这两块是 demo 和产品的唯一分界线，也是最没有技术光环、最容易被跳过的部分。
 - **微调只给 5%** —— 九成需求用 RAG + prompt 就解决了，很多人在微调上白耗半年。
 - **前端单列一章** —— 流式渲染、会话状态、交互设计恰好是 AI 产品最稀缺的能力，不是劣势。
+- **工程底座补齐五章**（TypeScript / Node 后端 / 数据库 / 网络系统 / Python）—— 市面上大多数"AI 学习路线"从 prompt 开始讲，默认你后端是熟的。前端转岗最缺的恰恰是这层。
 - **所有数字都标了来源或标注为经验值** —— 没有依据的具体数字比没有数字更有害。
+
+## 章节与权重
+
+| 章 | 内容 | 权重 |
+| --- | --- | --- |
+| 17 | TypeScript 深入 | 8% |
+| 18 | Node.js 后端工程 | 10% |
+| 19 | 数据库与数据建模 | 8% |
+| 20 | 网络、系统与分布式 | 5% |
+| 21 | Python 与 AI 生态 | 8% |
+| 00 | 定位与认知 | 5% |
+| 01 | LLM 基础 | 10% |
+| 02 | Prompt 与上下文工程 | 10% |
+| 03 | RAG 检索增强 | 20% |
+| 04 | Agent 智能体 | 15% |
+| 22 | 记忆系统与状态管理 | 7% |
+| 23 | 多模态 AI 应用 | 6% |
+| 05 | 微调与对齐 | 5% |
+| 06 | 推理与部署 | 8% |
+| 07 | 评测 Evals | 12% |
+| 08 | 可观测与运维 | 5% |
+| 09 | 安全与合规 | 5% |
+| 10 | 工程架构 | 5% |
+| 11 | 前端专有 | — |
+| 12 | 产品与场景 | — |
+| 13–16 | 路径 / 岗位 / 面试题库 / 项目手册 | — |
+
+权重是"投入时间占比"的建议，不是重要性排序。**RAG 20% + Agent 15% + 评测 12% 是主干**，微调只有 5%——这是刻意的判断。
+
 
 ## 本地运行
 
@@ -35,26 +65,38 @@ npm run preview
 .
 ├── docs/
 │   ├── .vitepress/
-│   │   ├── config.mts          # 导航、侧边栏、本地搜索
+│   │   ├── config.mts           # 导航、侧边栏、本地搜索
 │   │   └── theme/
 │   │       ├── index.ts
-│   │       └── custom.css      # 优先级标签样式
-│   ├── index.md                # 首页
+│   │       └── custom.css       # 优先级标签样式
+│   ├── public/logo.svg
+│   ├── index.md                 # 首页
 │   └── guide/
-│       ├── 00-orientation.md   # 定位与认知
-│       ├── 01-llm-basics.md    # LLM 基础
-│       ├── 02-prompt-context.md# Prompt 与上下文工程
-│       ├── 03-rag.md           # RAG 检索增强
-│       ├── 04-agent.md         # Agent 智能体
-│       ├── 05-finetune.md      # 微调与对齐
-│       ├── 06-inference.md     # 推理与部署
-│       ├── 07-evals.md         # 评测
-│       ├── 08-observability.md # 可观测与运维
-│       ├── 09-security.md      # 安全与合规
-│       ├── 10-architecture.md  # 工程架构
-│       ├── 11-frontend.md      # 前端专有
-│       ├── 12-product.md       # 产品与场景
-│       └── 13-path.md          # 路径与项目
+│       ├── 00-orientation.md    # 定位与认知
+│       ├── 01-llm-basics.md     # LLM 基础
+│       ├── 02-prompt-context.md # Prompt 与上下文工程
+│       ├── 03-rag.md            # RAG 检索增强
+│       ├── 04-agent.md          # Agent 智能体
+│       ├── 05-finetune.md       # 微调与对齐
+│       ├── 06-inference.md      # 推理与部署
+│       ├── 07-evals.md          # 评测
+│       ├── 08-observability.md  # 可观测与运维
+│       ├── 09-security.md       # 安全与合规
+│       ├── 10-architecture.md   # 工程架构
+│       ├── 11-frontend.md       # 前端专有
+│       ├── 12-product.md        # 产品与场景
+│       ├── 13-path.md           # 学习路径
+│       ├── 14-jobs.md           # 岗位与能力矩阵
+│       ├── 15-interview.md      # 面试题库（160 题）
+│       ├── 16-projects.md       # 项目实战手册
+│       ├── 17-typescript.md     # TypeScript 深入
+│       ├── 18-node-backend.md   # Node.js 后端工程
+│       ├── 19-database.md       # 数据库与数据建模
+│       ├── 20-network-system.md # 网络、系统与分布式
+│       ├── 21-python.md         # Python 与 AI 生态
+│       ├── 22-memory.md         # 记忆系统与状态管理
+│       └── 23-multimodal.md     # 多模态 AI 应用
+├── deploy.sh
 └── package.json
 ```
 

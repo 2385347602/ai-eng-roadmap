@@ -9,7 +9,7 @@ export default defineConfig({
   outDir: process.env.OUT_DIR || './.vitepress/dist',
   lang: 'zh-CN',
   title: 'AI 应用工程化',
-  description: '前端转 AI 应用工程化 · 完整知识地图（21 章 / 671 个知识点）',
+  description: '前端转 AI 应用工程化 · 完整知识地图（24 章 / 986 个知识点）',
   cleanUrls: true,
   lastUpdated: true,
 
@@ -37,6 +37,7 @@ export default defineConfig({
           { text: '18 Node.js 后端工程', link: '/guide/18-node-backend' },
           { text: '19 数据库与数据建模', link: '/guide/19-database' },
           { text: '20 网络、系统与分布式', link: '/guide/20-network-system' },
+          { text: '21 Python 与 AI 生态', link: '/guide/21-python' },
         ],
       },
       {
@@ -60,6 +61,8 @@ export default defineConfig({
         items: [
           { text: '03 RAG 检索增强', link: '/guide/03-rag' },
           { text: '04 Agent 智能体', link: '/guide/04-agent' },
+          { text: '22 记忆系统与状态管理', link: '/guide/22-memory' },
+          { text: '23 多模态 AI 应用', link: '/guide/23-multimodal' },
         ],
       },
       {

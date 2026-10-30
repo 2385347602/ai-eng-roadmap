@@ -18,6 +18,41 @@
 - **因果掩码** <span class="prio prio-imp">重要</span> — 为什么生成时看不到未来 token。理解它才能理解"为什么不能反向生成"、为什么流式输出天然是单向的。
 - **KV Cache** <span class="prio prio-must">必须</span> — 推理加速的核心：缓存历史 K/V 避免重复计算。它同时是显存占用的主要来源，直接决定并发数。部署章节会反复用到。
 - **MoE 混合专家** <span class="prio prio-imp">重要</span> — 用稀疏激活换参数量，DeepSeek / Qwen 都在用。理解"总参数 vs 激活参数"的区别，否则会被宣传数字误导。
+- **Prefill 与 Decode 两阶段** <span class="prio prio-must">必须</span> — 推理分成两段：**Prefill** 一次性并行处理全部输入（算力密集，决定 TTFT）；**Decode** 逐 token 生成（显存带宽密集，决定 TPOT）。**这两个阶段的瓶颈完全不同，优化手段也不同**——Prefill 靠加算力，Decode 靠减少显存读写。
+- **Chunked Prefill** <span class="prio prio-imp">重要</span> — 超长输入会长时间占住 GPU 导致其他请求 TTFT 爆炸。切成小块穿插执行，牺牲一点吞吐换延迟稳定。
+- **算力密集 vs 带宽密集** <span class="prio prio-imp">重要</span> — 长输入短输出（RAG、分类）是 Prefill 主导，看算力；短输入长输出（写作、推理）是 Decode 主导，看显存带宽。**这个判断直接决定你该买什么卡、怎么批处理**。
+
+## 模型类型
+
+不是所有"模型"都是聊天模型。**选错类型是新手最常见的低级错误**——比如拿生成模型做分类、拿 embedding 模型做问答。
+
+- **Base（基座模型）** <span class="prio prio-imp">重要</span> — 只会续写，不会对话。适合做微调起点，不适合直接用。
+- **Instruction / Chat（指令模型）** <span class="prio prio-must">必须</span> — 经过 SFT/RLHF，会听指令。**日常调用 99% 用这个**。
+- **Reasoning（推理模型）** <span class="prio prio-must">必须</span> — 先想再答（o 系列、DeepSeek-R1 系）。**优势在数学/代码/多步逻辑，劣势是慢和贵**。不要拿它做简单分类。
+- **推理预算（Reasoning Budget）** <span class="prio prio-imp">重要</span> — 推理模型可以控制"想多久"。**简单任务给低预算能省一大笔**，难题给高预算。这是 2024 年之后新增的重要成本杠杆。
+- **过度思考的代价** <span class="prio prio-imp">重要</span> — 推理模型对简单问题会绕远路，反而更差。**要按任务难度路由**，不是全都上最强模型。
+- **Embedding 模型** <span class="prio prio-must">必须</span> — 输出向量，用于检索/聚类/去重。**它不能生成文字**，混用是硬伤。
+- **Reranker（重排模型）** <span class="prio prio-must">必须</span> — Cross-Encoder 结构，输入 query+doc 输出相关性分数。比向量检索准但慢，**只用在召回后的精排**。
+- **VLM（视觉语言模型）** <span class="prio prio-must">必须</span> — 图文输入。详见 [23 · 多模态](/guide/23-multimodal)。
+- **Speech 模型** <span class="prio prio-imp">重要</span> — ASR（语音转文字）/ TTS（文字转语音）/ 端到端语音对话。三类完全不同。
+- **多模态统一模型** <span class="prio prio-opt">选学</span> — 一个模型同时处理文/图/音/视频。能力全面但单项常不如专用模型。
+- **Guard / 审核模型** <span class="prio prio-imp">重要</span> — 专门做内容安全分类，比用大模型判断便宜几十倍。
+- **怎么记住** <span class="prio prio-must">必须</span> — 一句话：**生成用 chat/reasoning，检索用 embedding，精排用 reranker，看图用 VLM，安全用 guard。** 面试问"你会用哪些模型"，按这五类答。
+
+## 必要的数学
+
+不用会推导，但**看到这些词不能懵**。面试官问"余弦相似度和点积什么区别"，答不上来说明 RAG 是抄来的。
+
+- **向量与点积** <span class="prio prio-must">必须</span> — 点积衡量方向和长度。**内积检索（`<#>`）比余弦快但受向量长度影响**，归一化后就等价了。
+- **范数（L2）** <span class="prio prio-must">必须</span> — 向量长度。归一化 = 除以范数，让所有向量长度变 1，此时点积 = 余弦。
+- **余弦相似度** <span class="prio prio-must">必须</span> — 只看方向不看长度，范围 -1~1。**文本 embedding 基本都用它**。
+- **欧氏距离（L2 距离）** <span class="prio prio-must">必须</span> — 直线距离。归一化向量下，欧氏距离和余弦单调对应（`d² = 2 - 2cos`）。
+- **为什么 embedding 要归一化** <span class="prio prio-must">必须</span> — 不归一化时，长文本的向量范数更大，会系统性地"更相似"。**很多检索效果差就是漏了这一步**。
+- **Softmax** <span class="prio prio-must">必须</span> — 把分数变成概率分布。temperature 就是在 softmax 前除以 T。**理解这一点就理解了 temperature 的本质**。
+- **交叉熵（Cross-Entropy）** <span class="prio prio-imp">重要</span> — 语言模型的训练损失就是它。困惑度（perplexity）= exp(交叉熵)。
+- **梯度下降** <span class="prio prio-opt">选学</span> — 沿梯度反方向更新参数。学习率、batch size、梯度累积的关系，微调时会用到。
+- **矩阵乘法** <span class="prio prio-imp">重要</span> — Transformer 里几乎全是它。**理解了"矩阵乘是算力瓶颈"就理解了为什么 GPU 重要**。
+- **精度类型** <span class="prio prio-imp">重要</span> — FP32 / FP16 / BF16 / FP8 / INT8 / INT4 的位数与动态范围差异。**BF16 比 FP16 动态范围大，训练更稳**；推理量化见 [06 · 推理](/guide/06-inference)。
 
 ## Tokenizer
 
@@ -76,6 +111,23 @@
 - **Llama / Mistral 系列** <span class="prio prio-imp">重要</span> — 海外开源基座，微调生态最成熟。
 - **国产合规模型（GLM / 豆包 / 混元 / 文心）** <span class="prio prio-imp">重要</span> — 有备案、可开票、数据不出境，ToB 项目常是硬性要求。
 - **开源 vs 闭源的取舍** <span class="prio prio-must">必须</span> — 开源换数据主权与成本可控，闭源换能力上限与免运维。判断依据是"数据能不能出境"和"量级够不够摊薄运维成本"。
-- **模型选型六维** <span class="prio prio-must">必须</span> — 能力 / 成本 / 延迟 / 上下文 / 多模态 / 合规。做一张打分表，别凭感觉选。
+- **模型选型 12 项指标** <span class="prio prio-must">必须</span> — 别只看"跑分"。做一张打分表，逐项填：
+
+  | # | 指标 | 怎么测 |
+  | --- | --- | --- |
+  | 1 | 任务准确率 | 自己的评测集跑分，不看公开榜 |
+  | 2 | 中文能力 | 中文语料实测，很多模型英文强中文弱 |
+  | 3 | 指令/格式遵循 | 让它输出严格 JSON 100 次，数失败几次 |
+  | 4 | 工具调用准确率 | 给 10 个工具，测选择与参数正确率 |
+  | 5 | 上下文有效长度 | 不是标称长度，测"第 50k token 还能答对吗" |
+  | 6 | TTFT 与 TPOT | 实测 P50/P95，不是看宣传 |
+  | 7 | 单位成本 | 输入/输出分开算，算到"每千次任务" |
+  | 8 | 限流与配额 | RPM/TPM 上限，够不够你的峰值 |
+  | 9 | 可用性 SLA | 历史故障率、有没有多区域 |
+  | 10 | 数据条款 | 会不会拿去训练、零留存选项 |
+  | 11 | 合规资质 | 备案、发票、能否私有化 |
+  | 12 | 版本稳定性 | 会不会静默升级，能不能锁版本 |
+
+  **前 4 项决定能不能用，后 8 项决定能不能长期用。** 面试时能报出其中几项实测数字，可信度立刻不一样。
 - **多模型策略** <span class="prio prio-imp">重要</span> — 贵模型做难任务，便宜模型做简单任务，路由分流。这是降本最有效的手段之一。
 - **版本更新与能力漂移** <span class="prio prio-imp">重要</span> — 厂商静默更新模型会改变行为。必须锁定版本号（如果支持）并保留回归测试。

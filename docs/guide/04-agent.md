@@ -51,13 +51,86 @@
 - **记忆冲突与遗忘** <span class="prio prio-opt">选学</span> — 新旧信息矛盾时如何处理（覆盖/时间戳/并存）。这是长期记忆的真实难点。
 - **记忆检索时机** <span class="prio prio-imp">重要</span> — 每次请求都检索全部记忆会污染上下文。要按相关性筛选。
 
-## 多 Agent
+## Workflow 编排模式（12 种）
+
+Anthropic 在《Building Effective Agents》里把这些叫 "workflows"——路径预先定义，模型只负责单步。**生产环境 80% 的需求靠这 12 种模式就够，不需要自主 Agent。**
+
+- **Sequential（顺序链）** <span class="prio prio-must">必须</span> — A 的输出喂给 B。最基础，也最可靠。典型：抽取 → 校验 → 格式化。
+- **Parallel（并行）** <span class="prio prio-must">必须</span> — 多个独立子任务同时跑，最后合并。**降延迟最直接的手段**。
+- **Conditional（条件分支）** <span class="prio prio-must">必须</span> — 按分类结果走不同分支。分支判断最好用代码或小模型，别用大模型"自由决定"。
+- **Fan-out / Fan-in（扇出扇入）** <span class="prio prio-imp">重要</span> — 一个任务拆成 N 份并行处理再聚合。文档批量处理的标准形态。
+- **Map-Reduce** <span class="prio prio-imp">重要</span> — Fan-out 的特例：每份独立处理（map），再汇总（reduce）。**长文档摘要必用**，且要分层 reduce。
+- **Router（路由）** <span class="prio prio-must">必须</span> — 入口先分类，再分发。降本利器：简单问题走小模型。
+- **Supervisor（主管）** <span class="prio prio-imp">重要</span> — 一个调度者决定"下一步谁来做"，工人不互相说话。**比自由协作可控得多**。
+- **Planner-Executor（规划-执行）** <span class="prio prio-must">必须</span> — 规划者出计划，执行者逐步做。计划可审阅、可缓存、可复用。
+- **Evaluator-Optimizer（评估-优化）** <span class="prio prio-imp">重要</span> — 生成 → 评估 → 打回重写，循环到达标。**必须设最大轮数**，否则死循环。
+- **HITL（人工介入）** <span class="prio prio-must">必须</span> — 关键节点暂停等审批。审批点要设计成"状态挂起"而非"线程阻塞"。
+- **Event-driven（事件驱动）** <span class="prio prio-imp">重要</span> — 由外部事件触发（新邮件、新工单、定时器）。**这是 Agent 从"聊天框"走向"后台员工"的关键**。
+- **DAG（有向无环图）** <span class="prio prio-must">必须</span> — 把上面这些组合成图：节点是步骤，边是依赖。LangGraph / Airflow / Temporal 都是这个思路。**能画出 DAG 就说明你想清楚了。**
+
+**怎么选**：先问"路径能不能预先枚举"。能 → 用 workflow（上面 12 种随便组合）；不能 → 才考虑自主 Agent。**面试答"我们先用 DAG 编排，只有真正开放的任务才交给自主循环"，比答"我们用了多 Agent 协作"分数高得多。**
+
+## 自主性等级与权限模式
+
+同一个 Agent，权限模式不同，风险差一个数量级。产品上必须显式选择，不能默认全开。
+
+- **Read-only（只读）** <span class="prio prio-must">必须</span> — 只能查，不能改。最安全，适合"分析助手"。
+- **Suggest（建议）** <span class="prio prio-must">必须</span> — 产出方案但不执行，由人点"确认"。**To B 场景的默认档**。
+- **Approval Required（需审批）** <span class="prio prio-must">必须</span> — 高风险动作（付款、删除、发外部邮件）单独审批，低风险动作自动执行。**分级授权比一刀切好用**。
+- **Execute（自动执行）** <span class="prio prio-imp">重要</span> — 全自动。只适合可逆、低价值、有兜底的场景（如整理标签、生成草稿）。
+- **权限继承原则** <span class="prio prio-must">必须</span> — Agent 的权限上限 = 当前用户的权限，**绝不能是服务账号的权限**。这是越权事故的头号成因。
+- **动作分级表** <span class="prio prio-imp">重要</span> — 把工具按"可逆性 × 影响范围"分四档，每档对应一个权限模式。**先列表再写代码**，这张表就是产品需求文档。
+
+## 工具类型目录
+
+面试问"你给 Agent 配了哪些工具"，答不出分类说明没系统想过。
+
+- **查询类（Read）** <span class="prio prio-must">必须</span> — 搜索、读文件、查库、调 API。无副作用，可随意重试。
+- **写入类（Write）** <span class="prio prio-must">必须</span> — 建记录、改状态、发消息。**必须幂等 + 审计**。
+- **计算类（Compute）** <span class="prio prio-must">必须</span> — 代码执行、数学计算、格式转换。**别让模型心算**，交给工具。
+- **检索类（Retrieve）** <span class="prio prio-must">必须</span> — RAG 检索、向量查询。和查询类的区别是"模糊 vs 精确"。
+- **通信类（Communicate）** <span class="prio prio-imp">重要</span> — 发邮件、发 IM、创建工单。**外部可见，风险最高**。
+- **编排类（Orchestrate）** <span class="prio prio-imp">重要</span> — 调用子 Agent、启动子任务。要有深度限制，防递归爆炸。
+- **人机类（Human）** <span class="prio prio-imp">重要</span> — 请求澄清、请求审批、转人工。**这个工具最容易被忘，但没有它 Agent 只能瞎猜**。
+- **工具数量上限** <span class="prio prio-must">必须</span> — 一次给模型超过 20 个工具，选择准确率明显下降。**按场景动态加载工具子集**，这是 MCP + Skill 存在的意义。
+
+## 多 Agent 体系
 
 - **协作模式** <span class="prio prio-imp">重要</span> — 顺序 / 并行 / 辩论 / 层级（主管-工人）。
-- **角色分工设计** <span class="prio prio-imp">重要</span> — 分工要按"能力差异"而非"人格设定"，否则只是多花 token。
+- **Role（角色）** <span class="prio prio-imp">重要</span> — 每个 Agent 一个明确职责。**角色是"职责边界"，不是"人格设定"**。
+- **Specialist（专家）** <span class="prio prio-imp">重要</span> — 窄领域深能力。比如"只做 SQL 生成"、"只做合同条款抽取"。
+- **Worker（工人）** <span class="prio prio-imp">重要</span> — 执行具体动作，不做决策。可并行复制多个。
+- **Handoff（交接）** <span class="prio prio-must">必须</span> — A 把控制权交给 B，附带结构化上下文。**OpenAI Agents SDK 的核心概念**。交接要传递"已确认的事实"，不是完整对话。
+- **Shared State（共享状态）** <span class="prio prio-must">必须</span> — 多个 Agent 读写同一份状态。**必须有并发控制**，否则互相覆盖。
+- **Blackboard（黑板）** <span class="prio prio-imp">重要</span> — 共享状态的一种：所有 Agent 往同一块区域写结论，谁需要谁读。适合松散协作。
+- **Conflict Resolution（冲突消解）** <span class="prio prio-imp">重要</span> — 两个 Agent 结论矛盾怎么办？投票 / 更高优先级者胜 / 升级给人 / 让第三个 Agent 裁决。
+- **Result Aggregation（结果聚合）** <span class="prio prio-must">必须</span> — 多份输出合并。**别让模型"自由合并"**，用结构化字段逐项对比。
+- **A2A 协议** <span class="prio prio-opt">选学</span> — Agent 间通信标准（Agent Card 发现 + 任务协作）。了解动向即可，生产用得还少。
 - **上下文隔离与消息传递** <span class="prio prio-must">必须</span> — 只传结构化结论，不传完整对话，否则污染爆炸。
-- **编排框架** <span class="prio prio-must">必须</span> — LangGraph（图/状态机，生产首选）/ AutoGen / CrewAI / MetaGPT。
-- **多 Agent 的真实收益** <span class="prio prio-must">必须</span> — 多数场景下多 Agent 不如一个好 Agent + 好工具。别为了架构而架构。
+- **多 Agent 的真实收益** <span class="prio prio-must">必须</span> — 多数场景下多 Agent 不如一个好 Agent + 好工具。**别为了架构而架构**。真实收益主要来自"上下文隔离"（每个 Agent 上下文更干净）和"并行"。
+
+## Agent 框架选型
+
+- **LangGraph** <span class="prio prio-must">必须</span> — 图 + 显式状态 + checkpoint。**生产首选**，可控性最好，Python/JS 都有。
+- **OpenAI Agents SDK** <span class="prio prio-must">必须</span> — 轻量，核心是 Agent + Handoff + Guardrail + Session。**概念最少，最容易读懂**。
+- **Vercel AI SDK** <span class="prio prio-must">必须</span> — TS 生态首选。`streamText` / `generateObject` / 工具调用 / UI 流式一体化。**前端转过来最顺手**。
+- **LangChain** <span class="prio prio-imp">重要</span> — 抽象层多、版本变动大。**建议读它的源码理解概念，但新项目别从它起步**。
+- **Mastra** <span class="prio prio-imp">重要</span> — TS 原生的 Agent 框架，工作流 + 记忆 + 评测都有。TS 团队可以看看。
+- **PydanticAI** <span class="prio prio-imp">重要</span> — 类型安全的 Python Agent 框架，和 FastAPI/Pydantic 生态一致。
+- **AutoGen / CrewAI** <span class="prio prio-opt">选学</span> — 多 Agent 协作框架。**demo 很惊艳，生产要谨慎**：可控性和可观测性偏弱。
+- **Semantic Kernel** <span class="prio prio-opt">选学</span> — 微软系，.NET/Java 生态友好。
+- **选型三条标准** <span class="prio prio-must">必须</span> — ① 有没有显式状态和 checkpoint（能不能恢复）② 能不能接入自己的可观测（能不能排障）③ 锁不锁定模型厂商（能不能换）。**三条里缺 checkpoint 直接排除。**
+
+## 状态管理
+
+任务级状态（不是用户记忆，那部分见 [22 · 记忆系统](/guide/22-memory)）。
+
+- **状态序列化** <span class="prio prio-must">必须</span> — 状态必须能落成 JSON。**只存在进程内存的状态 = 重启就丢**。
+- **任务锁** <span class="prio prio-must">必须</span> — 同一任务不能被两个 worker 同时推进。`SELECT ... FOR UPDATE` 或 Redis 分布式锁。
+- **并发控制** <span class="prio prio-imp">重要</span> — 多任务抢同一资源（同一文档、同一订单）时的顺序问题。
+- **Saga / 补偿链** <span class="prio prio-must">必须</span> — 多步副作用操作，每步都要有对应的 undo。第 3 步失败要撤销第 1、2 步。
+- **状态版本兼容** <span class="prio prio-imp">重要</span> — 给状态加 `schema_version` + 迁移函数。**跑几小时的长任务一定会跨版本**。
+- **子任务隔离** <span class="prio prio-imp">重要</span> — 子 Agent 崩溃不能带崩主流程。要有独立的超时和错误边界。
 
 ## 可靠性工程
 

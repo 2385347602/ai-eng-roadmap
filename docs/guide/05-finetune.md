@@ -40,6 +40,21 @@
 - **蒸馏** <span class="prio prio-imp">重要</span> — 强模型生成高质量回答训练小模型，降本主力。
 - **过拟合识别** <span class="prio prio-must">必须</span> — 训练 loss 降但验证集不降，或输出开始千篇一律。
 
+## 对齐与强化学习（了解即可）
+
+这一层你大概率不会自己跑，但**面试问"为什么推理模型要用 RL"答不出来，会显得只懂上层**。知道每样东西解决什么问题就够了。
+
+- **RLHF 三段式** <span class="prio prio-imp">重要</span> — SFT → 训奖励模型（人类偏好打分）→ 用 PPO 优化策略。**问题：训练不稳定、要四个模型同时在显存里、贵**。
+- **Reward Model（奖励模型）** <span class="prio prio-imp">重要</span> — 学会"人类更喜欢哪个回答"。它的偏差会被策略模型放大（reward hacking）。**这就是"过度讨好"和"过度拒答"的来源**。
+- **PPO** <span class="prio prio-opt">选学</span> — 经典 RL 算法，需要 critic 模型和价值估计。工程复杂。
+- **DPO** <span class="prio prio-must">必须</span> — 直接用偏好对（chosen / rejected）优化，**跳过奖励模型和 RL 循环**。工程上简单得多，是当前开源微调主流。
+- **ORPO / KTO / SimPO** <span class="prio prio-imp">重要</span> — DPO 的变体：ORPO 把 SFT 和偏好优化合成一步；KTO 只需要"好/坏"标签不需要成对；SimPO 去掉参考模型省显存。
+- **GRPO** <span class="prio prio-imp">重要</span> — DeepSeek 用的方法：**同一问题采样多个答案，用组内相对得分当优势**，省掉 critic 模型。**这是推理模型（R1 系）能训出来的关键**。
+- **可验证奖励（RLVR）** <span class="prio prio-imp">重要</span> — 数学题对答案、代码跑单测——**奖励来自程序验证而不是人类偏好**。这是推理能力提升的核心机制，也是"为什么数学和代码先突破"的原因。
+- **对齐税（Alignment Tax）** <span class="prio prio-imp">重要</span> — 对齐后模型变"安全"但也变"保守"，创造性和多样性下降。**产品上表现为"回答越来越像模板"**。
+- **过度拒答** <span class="prio prio-imp">重要</span> — 安全训练过度导致正常问题被拒。**这是 ToB 落地最常见的抱怨**，解法是补充"该答的必须答"的正样本。
+- **你实际会做的** <span class="prio prio-must">必须</span> — 不是训 RL，而是**构造偏好数据跑 DPO**：同一个问题收集"好答案/差答案"对，几百到几千条，DPO 一轮。这是应用工程师能独立完成的对齐工作。
+
 ## 工具链
 
 - **LLaMA-Factory** <span class="prio prio-must">必须</span> — 国内最常用的一站式微调框架，WebUI 友好。
