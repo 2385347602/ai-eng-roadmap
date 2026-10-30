@@ -89,6 +89,34 @@
 - **分布式锁** <span class="prio prio-imp">重要</span> — 防重复索引、防重复执行同一任务。Redis 实现要校验持有者。
 - **CAP 的实际含义** <span class="prio prio-opt">选学</span> — 网络分区时在一致性和可用性之间选。多数业务选可用性 + 最终一致。
 
+## 微服务基础设施（知道每个解决什么问题就够）
+
+**你是前端转岗，不需要搭微服务，但面试官会用这些词问"你们系统怎么组织的"。** 每个组件只要答出"它解决什么问题、没有它会怎样"就够，不必会部署。
+
+- **API Gateway** <span class="prio prio-must">必须</span> — 统一入口：鉴权、限流、路由、协议转换、日志。**没有它，每个服务都要自己实现一遍鉴权**。AI 应用里网关还要多做一件事：**token 计量与成本归因**（见 [10 · 架构](/guide/10-architecture)）。
+- **Service Discovery（服务发现）** <span class="prio prio-must">必须</span> — 服务实例动态增减，调用方怎么找到它。两种模式：**客户端发现**（Consul/etcd，调用方自己选）和**服务端发现**（K8s Service / 负载均衡器代劳）。**K8s 环境下你基本不用自己操心**。
+- **Configuration Center（配置中心）** <span class="prio prio-must">必须</span> — 配置集中管理 + 热更新 + 版本回滚。**AI 应用里它管的是 prompt 版本、模型名、阈值**——这类配置改得比代码频繁得多，**必须能不发版就改、改错能秒回滚**。
+- **Load Balancing（负载均衡）** <span class="prio prio-imp">重要</span> — 四层（TCP，看 IP/端口）vs 七层（HTTP，看路径/Header）。**算法**：轮询、加权、最少连接、一致性哈希（同一用户打到同一实例，利于缓存）。**注意：LLM 服务扩 Pod 收益低，瓶颈在模型侧**。
+- **Service Mesh（服务网格）** <span class="prio prio-opt">选学</span> — 把流量治理（重试、熔断、mTLS、链路追踪）从业务代码里抽到 Sidecar。**理念好，但运维成本高**。**小团队别上**，用 SDK 或网关解决就行。
+- **分布式事务** <span class="prio prio-must">必须</span> — 跨服务/跨库的原子性。**能不用就不用**——先想能不能改成单库、能不能改成异步最终一致。真要用的方案见下。
+- **2PC（两阶段提交）** <span class="prio prio-opt">选学</span> — 强一致但阻塞、性能差、协调者单点。**互联网业务基本不用**。
+- **Saga Pattern** <span class="prio prio-must">必须</span> — 长事务拆成多个本地事务，每步配一个补偿动作（undo）。**失败就反向执行补偿**。这是**互联网主流方案**，和 [04 · Agent](/guide/04-agent) 的补偿链、[22 · 记忆](/guide/22-memory) 的 Saga 是同一套思路。
+- **TCC（Try-Confirm-Cancel）** <span class="prio prio-imp">重要</span> — 业务层三段式预留/确认/取消。比 Saga 强一致，但**每个业务都要写三个接口**，成本高。适合资金类。
+- **本地消息表 / Outbox** <span class="prio prio-must">必须</span> — 最实用的方案：业务表和消息表同事务写入，另一个进程轮询发消息。**"最终一致"的性价比之王**，见 [19 · 数据库](/guide/19-database)。
+- **幂等是分布式事务的前提** <span class="prio prio-must">必须</span> — 任何补偿、重试、重放都要求幂等。**没有幂等，Saga 会把数据搞得更乱**。
+
+## 容量与伸缩
+
+- **无状态服务设计** <span class="prio prio-must">必须</span> — 服务不把状态存在本地内存/本地磁盘，**状态放 Redis / DB / 对象存储**。这是"能水平扩容"的前提。**AI 应用的会话状态、上传的临时文件都要外置**。
+- **水平扩容（Scale Out）** <span class="prio prio-must">必须</span> — 加机器。前提是无状态 + 有负载均衡。**垂直扩容（加 CPU 内存）有上限，水平没有**。
+- **有状态服务的扩容** <span class="prio prio-imp">重要</span> — 数据库、队列、向量库扩容要分片/迁移。**这类是扩容的难点，设计时要尽量少**。
+- **容量估算** <span class="prio prio-must">必须</span> — QPS × 平均耗时 = 并发数（利特尔法则）。**再加 30~50% 余量**。**AI 应用别忘算 token 成本和下游限流**。
+- **压测要压到崩** <span class="prio prio-must">必须</span> — k6 / JMeter / autocannon。**只压到"看起来正常"没有意义，必须找到拐点**。
+- **扩容的滞后性** <span class="prio prio-imp">重要</span> — 自动扩容要几十秒到几分钟。**突发流量靠扩容来不及，要靠限流 + 排队兜住**。
+- **缩容比扩容难** <span class="prio prio-opt">选学</span> — 缩太快会打断在途请求。要优雅停机（先摘流量、等在途完成、再退出）。
+- **容灾与高可用** <span class="prio prio-must">必须</span> — 多可用区部署、故障转移、RPO/RTO。见 [10 · 架构](/guide/10-architecture) 的 Backup/DR。
+- **单点识别** <span class="prio prio-must">必须</span> — 画一遍架构图，**每个"只有一个"的东西都是单点**：单库、单 Redis、单网关、单模型供应商。**逐个问"它挂了怎么办"**。
+
 ## 排障方法论（这一节最实用）
 
 线上出问题，按这个顺序查，能覆盖 90% 的情况：

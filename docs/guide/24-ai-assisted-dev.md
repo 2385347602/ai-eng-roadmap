@@ -48,6 +48,12 @@
 - **小步提交** <span class="prio prio-must">必须</span> — 一次只让它做一件事。**大 spec 一次生成 800 行，你 review 不动，等于没 review**。
 - **规格的复用价值** <span class="prio prio-imp">重要</span> — 好 spec 是团队资产：换模型、换工具、换人都能重跑。**这也是为什么它比 prompt 值钱**。
 - **和"需求文档"的区别** <span class="prio prio-imp">重要</span> — 需求文档给人看（可以含糊），spec 给机器执行（必须精确）。**写 spec 的能力本质是"把模糊需求拆成可验证断言"的能力**。
+- **PRD 是上游，spec 是下游** <span class="prio prio-must">必须</span> — PRD 回答"为什么做、给谁做、做什么"；spec 回答"做成什么样算对"。**跳过 PRD 直接写 spec，你会把需求理解错的那部分固化进代码**。
+- **需求分析的三问** <span class="prio prio-must">必须</span> — ① 谁在什么场景下用 ② 不做会怎样（判断优先级）③ 怎么知道做对了（就是验收标准）。**第三问必须在动手前回答**。
+- **验收标准要写成 Given-When-Then** <span class="prio prio-must">必须</span> — "给定已登录用户，当其提交空标题时，系统应返回 400 并提示'标题不能为空'"。**这种句子能直接翻译成测试用例，这是它比自然语言描述强的地方**。
+- **Spec Kit 的工作流（GitHub 官方做法）** <span class="prio prio-must">必须</span> — 五个阶段：**Specify（写规格）→ Plan（技术方案）→ Tasks（拆任务）→ Implement（分步实现）→ 收敛验证**。**关键在"分步"**：每次只让 AI 做一个 task，做完验证再下一个。
+- **分步实现为什么重要** <span class="prio prio-must">必须</span> — 一次生成 800 行你 review 不动；拆成 8 个 100 行的改动，每个都能看懂、能测、能回滚。**这是 spec coding 和"一句话让 AI 写整个模块"的本质区别**。
+- **规格的收敛验证** <span class="prio prio-imp">重要</span> — 实现完成后要回头逐条核对规格：哪条满足了、哪条没满足、哪条规格本身写错了。**这一步最容易被跳过，也最能暴露"规格没想清楚"**。
 
 ## Agentic Coding：让 AI 自己跑循环
 
@@ -58,6 +64,24 @@
 - **权限与沙箱** <span class="prio prio-must">必须</span> — 默认禁止 `rm -rf`、`git push --force`、访问生产数据库、读 `.env`。**见 [09 · 安全](/guide/09-security) 的代码执行安全一节**。
 - **人在哪一环** <span class="prio prio-must">必须</span> — 人管三件事：定 spec、审 diff、做架构决策。**中间的机械劳动交给它**。
 - **失败模式** <span class="prio prio-imp">重要</span> — 陷入死循环（同一个测试反复失败用同样方法改）、过度重构（顺手改了你没让它改的文件）、幻觉 API（调用不存在的库方法）。**这三个都要有检测手段**。
+- **多文件修改的依赖分析** <span class="prio prio-must">必须</span> — 改一个函数签名，谁在调它？**AI 经常只改定义处，漏掉调用处**。做法：让它先输出"影响面清单"（哪些文件、哪些调用点），你确认后再动手。TypeScript 的 `tsc --noEmit` 会把漏改的地方全指出来——**这就是为什么强类型对 AI 辅助开发特别重要**。
+- **跨文件重构的顺序** <span class="prio prio-imp">重要</span> — 先加新接口并保留旧接口 → 迁移调用方 → 删旧接口。**一步到位的重命名在 AI 手里极易半途而废**。
+- **失败测试的定位流程** <span class="prio prio-must">必须</span> — 三步：① 先让它读完整报错和堆栈，**不要直接让它改代码** ② 让它说出"你认为是哪一行、为什么" ③ 再让它改。**跳过第 ② 步，它会开始瞎试**。
+- **"同一个测试失败三次就停"** <span class="prio prio-must">必须</span> — 硬规则。同一处反复失败说明它的理解是错的，继续试只是烧钱。**停下来重新给上下文，比让它试十次有效**。
+- **工具权限的四档** <span class="prio prio-must">必须</span> — ① 只读（读文件、搜索、看 diff）② 可写代码（改源文件、跑测试）③ 可执行副作用（装依赖、跑迁移、提交 git）④ 可触达外部（推送、部署、调生产 API）。**默认只给前两档，第三档逐次确认，第四档不给**。
+- **它不该碰的东西** <span class="prio prio-must">必须</span> — `.env`、密钥文件、生产配置、数据库迁移脚本、CI 配置。**这几类要写进拒绝列表，不是靠自觉**。
+- **上下文压缩的必要性** <span class="prio prio-imp">重要</span> — 长任务跑几十步后上下文会爆。工程做法：让它把"已确认的事实"写进一个 `progress.md`，然后开新会话读这个文件继续。**这是 Agent 长任务的标准做法**，详见 [25 · Harness 与 Loop](/guide/25-harness-loop)。
+
+## CI 门禁与自动化审查
+
+- **门禁的意义** <span class="prio prio-must">必须</span> — 人 review 会疲劳，机器不会。**AI 写的代码量是人的几倍，光靠人眼 review 一定会漏**。
+- **必过的四道门** <span class="prio prio-must">必须</span> — 类型检查（`tsc --noEmit` / `mypy`）、lint、单测、构建。**这四道挂了不许合并**，没有例外。
+- **AI 应用要多一道** <span class="prio prio-must">必须</span> — **prompt 回归测试**（见 [07 · 评测](/guide/07-evals)）。改了 prompt 或换了模型，评测集跑一遍看指标有没有掉。**这是 AI 项目和传统项目在 CI 上唯一的实质差异**。
+- **自动化代码审查** <span class="prio prio-imp">重要</span> — 用 AI 做第一轮 review（查明显问题：空指针、吞异常、漏改调用点、新增依赖）。**但它不能替代人**：AI 审查会放过"逻辑正确但设计错误"的问题。
+- **依赖变更要单独审** <span class="prio prio-must">必须</span> — lockfile 的 diff 必须人看。**AI 很爱引入新依赖来解决一个三行代码就能解决的问题**，这是供应链风险的入口。
+- **测试文件的 diff 要重点看** <span class="prio prio-must">必须</span> — 删测试、改断言、加 `.skip` 是 AI 让 CI 变绿最常见的手段。**门禁里可以加一条：测试文件被删除或跳过数增加时，需要额外审批**。
+- **覆盖率不设硬阈值** <span class="prio prio-imp">重要</span> — 设 80% 会催生一堆断言为空的测试。**改为"新增代码的关键路径必须有测试"**，靠 review 判断。
+- **构建产物体积门禁** <span class="prio prio-opt">选学</span> — 前端项目加 bundle size 上限。**AI 引入一个大依赖时能立刻发现**。
 
 ## AI 重构与代码治理
 
@@ -82,6 +106,8 @@
 
 - **AI 生成代码的 review 重点** <span class="prio prio-must">必须</span> — ① 它有没有改到你没让它改的地方 ② 错误处理是真空的还是吞掉的 ③ 有没有引入新依赖 ④ 测试是真断言还是摆设 ⑤ 边界条件（空、null、超长、并发）有没有考虑。
 - **它容易犯的错** <span class="prio prio-imp">重要</span> — 幻觉 API（不存在的库方法）、过时写法（用了已废弃的 API）、过度抽象（为一个用例造三层接口）、注释与代码不符。
+- **AI 生成代码的安全检查** <span class="prio prio-must">必须</span> — 六项必查：**① SQL/命令拼接（注入）② 用户输入直接进 `innerHTML`（XSS）③ 硬编码密钥 ④ 日志打印敏感字段 ⑤ 越权（缺 `user_id` 过滤）⑥ 反序列化不可信数据**。**AI 默认会写出"能跑但没做安全校验"的代码**——它学的是示例代码，而示例代码通常省略安全处理。
+- **依赖引入的安全检查** <span class="prio prio-imp">重要</span> — 新依赖要看：维护活跃度、下载量、是否有已知 CVE、包名是否像 typosquatting。**AI 幻觉出的包名可能真的存在（被别人抢注）**，这是新型供应链攻击。
 - **它做得比人好的地方** <span class="prio prio-imp">重要</span> — 命名一致性、格式统一、补文档、找明显的空指针、批量改样板代码。**让它做这些，别让它做架构决策**。
 - **评审规则要写下来** <span class="prio prio-imp">重要</span> — 写进规则文件（AGENTS.md / 团队 checklist）。**口头约定对 AI 无效**。
 - **PR 描述** <span class="prio prio-imp">重要</span> — 让 AI 生成 PR 描述，但**必须自己核对它说的是不是真的**。AI 写的 PR 描述经常比实际改动更美好。

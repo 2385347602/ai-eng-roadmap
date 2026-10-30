@@ -13,3 +13,4 @@ docs/.vitepress/build-v4
 
 # 本地保留但不提交（PAT 缺 workflow scope）
 .github/workflows/
+docs/.vitepress/build-v5
