@@ -60,46 +60,32 @@ npm run preview
 
 ## 部署到 GitHub Pages
 
-1. 推到 GitHub，仓库名假设为 `ai-eng-roadmap`
-2. 改 `docs/.vitepress/config.mts`，加上 `base: '/ai-eng-roadmap/'`
-3. 加一个 workflow：
+线上地址：**https://2385347602.github.io/ai-eng-roadmap/**
 
-```yaml
-name: Deploy
+当前用的是 **gh-pages 分支**方式（不需要 workflow 权限）。`base` 由环境变量注入，本地开发仍是根路径。
 
-on:
-  push:
-    branches: [main]
+### 更新内容后重新部署
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm install
-      - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/.vitepress/dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-    steps:
-      - uses: actions/deploy-pages@v4
+```bash
+./deploy.sh
 ```
 
-4. 仓库 Settings → Pages → Source 选 GitHub Actions
+脚本做三件事：构建到 `docs/.vitepress/site-build`、`BASE_PATH=/ai-eng-roadmap/`、强制推到 `gh-pages` 分支。推送后 GitHub 会在 1~2 分钟内重新发布。
+
+### 想改成自动部署（推荐长期方案）
+
+现在的缺点是每次更新要手动跑脚本。要改成 push 即自动发布，用 GitHub Actions：
+
+1. 生成一个带 **`workflow`** 权限的 token（`repo` + `workflow` 两个 scope 都要）
+2. 把 `.github/workflows/deploy.yml` 提交并推送
+3. 仓库 Settings → Pages → Source 改成 **GitHub Actions**
+
+workflow 文件已经准备好了（在仓库里，但未提交，因为 PAT 默认没有 workflow 权限）。改完之后 push 到 main 就会自动构建发布。
+
+### 为什么现在不是 Actions
+
+GitHub 有个硬限制：Personal Access Token 必须显式勾选 `workflow` scope 才能推送 `.github/workflows/` 下的文件。当时用的 token 只有 `repo`，所以走了 gh-pages 分支这条路。两种方式效果一样，只是后者要手动触发。
+
 
 ## 其他可选的文档框架
 
