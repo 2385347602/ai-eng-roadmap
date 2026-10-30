@@ -2,6 +2,7 @@ node_modules
 dist
 docs/.vitepress/cache
 docs/.vitepress/dist
+docs/.vitepress/site-build
 .DS_Store
 *.log
 .idea
