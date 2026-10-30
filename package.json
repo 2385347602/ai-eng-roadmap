@@ -1,0 +1,15 @@
+{
+  "name": "ai-eng-roadmap",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "前端转 AI 应用工程化 · 完整知识地图",
+  "scripts": {
+    "dev": "vitepress dev docs --port 5178",
+    "build": "vitepress build docs",
+    "preview": "vitepress preview docs --port 5178"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3"
+  }
+}

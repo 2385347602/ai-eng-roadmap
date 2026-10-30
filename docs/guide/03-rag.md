@@ -1,0 +1,133 @@
+# 03 · RAG 检索增强
+
+> **投入权重：20%** · 投入最大的一块，也是最能体现工程功底的地方。
+> 记住一句话：**RAG 的效果上限由检索决定，不由模型决定。**
+
+## 一句话原理与常见误解
+
+RAG 就是"先去资料里找，再让模型基于找到的内容回答"。听起来简单，但真实项目里八成的失败都出在检索环节——检索根本没找到，模型再强也只能编。
+
+三个最常见的误解：一、以为换个更强的模型就能解决答不准；二、以为分块越大越好（塞得多反而稀释）；三、以为向量检索万能（对型号、代码、人名基本无效）。这一章的价值就在于把这三个坑填掉。
+
+## 数据接入
+
+- **数据源类型盘点** <span class="prio prio-must">必须</span> — 文件 / 网页 / 数据库 / API / IM 聊天记录 / 工单。每种接入方式完全不同，别指望一个 loader 全搞定。
+- **PDF 解析难点** <span class="prio prio-must">必须</span> — 双栏、页眉页脚、跨页表格、公式、扫描件。这是 RAG 项目最大的时间黑洞，要预留充足时间。
+- **PDF 工具选型** <span class="prio prio-must">必须</span> — PyMuPDF（快）/ pdfplumber（表格好）/ unstructured（通用）/ MinerU、Marker（版面分析强）。先测再选，不同文档类型结果差异很大。
+- **OCR 方案** <span class="prio prio-must">必须</span> — PaddleOCR（中文强）/ Tesseract / 直接让多模态模型读图（贵但省事）。扫描件比例高时，多模态直读往往比传统 OCR 流水线效果好。
+- **表格抽取与结构化** <span class="prio prio-must">必须</span> — 表格转 Markdown 还是转自然语言描述？后者对检索更友好，前者保真。实践中常两者都存。
+- **HTML 正文提取** <span class="prio prio-imp">重要</span> — Readability / trafilatura 去导航与广告，否则检索结果全是噪声。
+- **Office 文档解析** <span class="prio prio-imp">重要</span> — docx / pptx / xlsx 保留层级与标题，别只抽纯文本。标题层级是后面按结构分块的基础。
+- **图片与图表理解** <span class="prio prio-imp">重要</span> — 让多模态模型生成图注再入库，比只存图有效得多。
+- **音频转写** <span class="prio prio-opt">选学</span> — Whisper 类模型 + 时间戳，便于溯源。
+- **数据清洗** <span class="prio prio-must">必须</span> — 去页眉页脚、去重复段、去乱码、统一全半角、修断行。这步做不好，后面所有优化都是在垃圾上做优化。
+- **数据质量评估** <span class="prio prio-imp">重要</span> — 抽样人工看 50 条解析结果。你会发现很多"模型不行"其实是"解析出来就是乱的"。
+
+## 分块 Chunking
+
+- **固定长度分块** <span class="prio prio-must">必须</span> — 最简单，按 token 数切。作为 baseline，别一上来就上复杂方案。
+- **递归字符分块** <span class="prio prio-must">必须</span> — 按段落→句子→字符逐级降级切分，保留语义边界。默认首选。
+- **语义分块** <span class="prio prio-imp">重要</span> — 按 embedding 相似度断点切分。效果提升有限但成本高，慎用。
+- **按结构分块** <span class="prio prio-must">必须</span> — 按标题层级切，保留章节路径。对说明书、法规、文档类效果最好。
+- **父子块 / Small-to-Big** <span class="prio prio-must">必须</span> — 用小块检索（精准），返回大块给模型（上下文完整）。性价比最高的技巧之一。
+- **句子窗口检索** <span class="prio prio-must">必须</span> — 命中句子后带前后 N 句返回。实现简单，效果稳定。
+- **重叠 overlap 设置** <span class="prio prio-imp">重要</span> — 一般 10~20%。太高浪费，太低切断语义。
+- **分块大小的权衡** <span class="prio prio-must">必须</span> — 太小丢上下文，太大稀释相关性。**中文建议从 300~600 字起测，最终值由评测集决定，不要照搬别人的数字。**
+- **元数据设计** <span class="prio prio-must">必须</span> — 来源、章节、时间、权限、文档类型。元数据决定了后面能不能过滤，事后补非常痛苦。
+- **文档层级保留** <span class="prio prio-imp">重要</span> — 每个块都带上"所属文档 > 章节 > 小节"的路径，检索时一并返回，模型更容易定位。
+- **特殊内容单独处理** <span class="prio prio-imp">重要</span> — 代码块、表格、公式不要被切碎。用占位符保护起来，切完再还原。
+
+## 向量化
+
+- **Embedding 的本质** <span class="prio prio-must">必须</span> — 把语义映射到高维空间，距离近 = 意思近。它不理解逻辑，只理解分布相似。
+- **主流模型选型** <span class="prio prio-must">必须</span> — text-embedding-3 / bge-m3 / Qwen-Embedding / jina / voyage。中文场景优先 bge-m3 或 Qwen 系列。
+- **维度与效果/成本** <span class="prio prio-imp">重要</span> — 高维效果略好但存储与检索成本上升。常见 1024 / 1536 / 3072。
+- **多语言能力** <span class="prio prio-imp">重要</span> — 跨语言检索需要多语言 embedding，否则中文 query 检索不到英文文档。
+- **非对称检索** <span class="prio prio-imp">重要</span> — query 短、document 长，部分模型支持分别编码（如 bge 的 query instruction）。用错模式会明显掉召回。
+- **相似度度量** <span class="prio prio-imp">重要</span> — cosine / dot / L2。归一化后 cosine 与 dot 等价，别混用。
+- **稀疏向量 SPLADE** <span class="prio prio-opt">选学</span> — 词项级权重，专有名词与型号召回强，适合与稠密做混合。
+- **多向量 ColBERT / 视觉检索 ColPali** <span class="prio prio-imp">重要</span> — 后者直接把 PDF 页面当图检索，跳过解析，对复杂版面极有效。这是近两年最值得关注的路线之一。
+- **领域微调 embedding** <span class="prio prio-opt">选学</span> — 通用模型在垂直领域（医疗/法律/工业）召回差时，微调 embedding 比换大模型有效。
+- **Embedding 版本管理** <span class="prio prio-imp">重要</span> — 换模型必须全量重建索引，且新旧向量不能混用。要有重建方案和灰度。
+
+## 向量库
+
+- **Milvus** <span class="prio prio-imp">重要</span> — 功能最全，支持大规模与多种索引，运维较重。
+- **Qdrant** <span class="prio prio-must">必须</span> — API 设计好，过滤能力强，单机部署轻，中小项目首选之一。
+- **Weaviate** <span class="prio prio-imp">重要</span> — 自带混合检索与模块化，开箱体验好。
+- **pgvector** <span class="prio prio-must">必须</span> — 复用现有 Postgres，事务与权限天然打通。数据量百万级以内强烈推荐，能省掉一整套运维。
+- **Chroma** <span class="prio prio-imp">重要</span> — 原型期最快，生产慎用。
+- **Elasticsearch / OpenSearch** <span class="prio prio-imp">重要</span> — 已有 ES 就直接用其向量能力，混合检索成熟。
+- **LanceDB** <span class="prio prio-opt">选学</span> — 嵌入式，适合本地与边缘。
+- **HNSW 索引** <span class="prio prio-imp">重要</span> — 主流近似最近邻算法。理解 ef / M 参数对召回与延迟的影响。
+- **IVF / PQ 量化** <span class="prio prio-opt">选学</span> — 大规模降内存手段，会损失召回。
+- **标量过滤与多租户隔离** <span class="prio prio-must">必须</span> — 用 partition / payload 过滤，而不是建多个 collection。这是选型的硬指标，很多库在这方面很弱。
+- **选型维度** <span class="prio prio-imp">重要</span> — 规模、过滤能力、多租户、运维成本、生态、是否需要事务。按这六项打分。
+
+## 检索
+
+- **稠密检索** <span class="prio prio-must">必须</span> — 语义匹配强，对同义改写鲁棒，对专有名词弱。
+- **BM25 稀疏检索** <span class="prio prio-must">必须</span> — 关键词精确匹配强，对型号、人名、代码标识符不可替代。
+- **混合检索 + RRF 融合** <span class="prio prio-must">必须</span> — 两路召回后按倒数排名融合。工业界标配，几乎总能提升。
+- **权重调参** <span class="prio prio-imp">重要</span> — 稠密/稀疏比例按领域调，用评测集定，不要拍脑袋。
+- **Query 改写** <span class="prio prio-must">必须</span> — 口语化 query 转检索式；纠错；补全指代（多轮场景必须）。
+- **HyDE** <span class="prio prio-imp">重要</span> — 让模型先编一个假答案，用假答案去检索。对抽象问题有效。
+- **Multi-Query 多查询** <span class="prio prio-must">必须</span> — 生成 3~5 个不同角度的 query 并行检索再合并，提升召回。
+- **查询分解 Sub-query** <span class="prio prio-imp">重要</span> — 复杂问题拆成多个子问题分别检索。
+- **元数据过滤** <span class="prio prio-must">必须</span> — 先按时间/类型/权限过滤再检索，比事后过滤准。
+- **权限过滤的正确姿势** <span class="prio prio-must">必须</span> — 把权限条件下推到检索层，绝不能检索完再在应用层删——那样会泄露。
+- **召回数量 k 的设定** <span class="prio prio-imp">重要</span> — 召回 20~50 条给重排，最终取 3~8 条给模型。太少漏，太多噪声。
+- **检索结果去重** <span class="prio prio-imp">重要</span> — 相邻块高度相似，不去重会浪费上下文预算。
+
+## 重排与组装
+
+- **Rerank 模型** <span class="prio prio-must">必须</span> — bge-reranker / Cohere Rerank / Jina Reranker。召回 50 条重排取 5 条，是效果提升最显著的一步。
+- **Bi-encoder vs Cross-encoder** <span class="prio prio-must">必须</span> — 前者快用于召回，后者准用于精排。理解这个分工才知道为什么需要两阶段。
+- **上下文组装与排序** <span class="prio prio-must">必须</span> — 把最相关的放首尾（对抗 lost in the middle），中间放次要。
+- **去重与多样性** <span class="prio prio-imp">重要</span> — MMR 类算法避免返回 5 段说同一件事的内容。
+- **上下文压缩** <span class="prio prio-opt">选学</span> — LLMLingua 类方法压掉冗余句，省 token 且提纯。
+- **引用标注** <span class="prio prio-must">必须</span> — 每个片段带来源 ID，让模型输出时引用。既是体验也是责任边界。
+
+## 高级架构
+
+- **多跳检索** <span class="prio prio-imp">重要</span> — 第一轮结果里提取新线索再检索。适合"对比 A 和 B"类问题。
+- **GraphRAG** <span class="prio prio-opt">选学</span> — 抽实体关系建图，适合"全局性总结"类问题（如"这批文档的主要矛盾是什么"）。
+- **RAPTOR 层次摘要** <span class="prio prio-opt">选学</span> — 文档做多级摘要树，兼顾细节与全局。
+- **Agentic RAG** <span class="prio prio-imp">重要</span> — 让 Agent 自己决定检索什么、检索几次、要不要换 query。效果上限高但成本与不确定性上升。
+- **结构化 + 非结构化混合** <span class="prio prio-imp">重要</span> — SQL 查数值、向量查文档，再合并。企业场景常见。
+- **多模态 RAG** <span class="prio prio-imp">重要</span> — 图片、图表、扫描页直接走向量检索，配合文本检索。ColPali 路线值得关注。
+
+## 评估
+
+- **Recall@k** <span class="prio prio-must">必须</span> — 检索层最核心指标。k=5 时召回不到 80%，后面再优化生成都是白费。
+- **MRR / NDCG** <span class="prio prio-imp">重要</span> — 考虑排序位置的指标，更贴近真实体验。
+- **Faithfulness 忠实度** <span class="prio prio-must">必须</span> — 答案是否完全来自给定材料。RAG 的第一指标。
+- **Answer Relevancy** <span class="prio prio-must">必须</span> — 答案是否真的回答了问题。
+- **Context Precision / Recall** <span class="prio prio-imp">重要</span> — 检索内容的信噪比与覆盖率。
+- **RAGAS 框架** <span class="prio prio-must">必须</span> — 上述指标的现成实现，快速搭评测基线。
+- **分层归因** <span class="prio prio-must">必须</span> — 错了要能判断是"没检索到"还是"检索到但没用"。这是 RAG 调试的核心方法。
+- **端到端 vs 分层评估** <span class="prio prio-must">必须</span> — 端到端看体验，分层定位问题。两套都要有。
+
+## 工程化
+
+- **增量索引** <span class="prio prio-must">必须</span> — 新文档增量入库，不要每次全量重建。
+- **删除与更新一致性** <span class="prio prio-must">必须</span> — 源文档删了索引里还在，是生产事故高发点。需要文档 ID 映射与级联删除。
+- **文档版本管理** <span class="prio prio-imp">重要</span> — 同一文档多版本共存会导致答案混乱。
+- **索引重建策略** <span class="prio prio-imp">重要</span> — embedding 模型升级必须全量重建，要有灰度方案。
+- **批量处理与限流** <span class="prio prio-imp">重要</span> — embedding API 有 QPS 限制，需要队列 + 退避重试。
+- **成本核算** <span class="prio prio-imp">重要</span> — embedding 调用费 + 向量存储 + 检索算力。十万文档量级要提前算。
+- **多租户隔离** <span class="prio prio-must">必须</span> — 数据、索引、缓存三层都要隔离，任何一层漏都是事故。
+- **可观测** <span class="prio prio-must">必须</span> — 每次检索都要记录：query、召回 ID、分数、最终入选。否则无法归因。
+
+## 本章对应的面试题
+
+这是面试重灾区，共 30 题，见 [15 · 面试题库 · D 组](/guide/15-interview#d-rag-30-题-面试重灾区)。
+
+如果只准备三道，就准备这三道：
+
+- **D1 你的召回率多少、怎么测的** —— 答不上来基本等于没做过
+- **D4 混合检索的权重怎么定的** —— 考有没有真调过参
+- **D7 权限怎么隔离** —— ToB 场景红线
+
+配套的动手部分见 [16 · 项目实战 · 项目 1](/guide/16-projects)。
+

@@ -1,0 +1,64 @@
+/* 优先级标签：必须 / 重要 / 选学 */
+.prio {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  vertical-align: 1px;
+  margin-left: 2px;
+  white-space: nowrap;
+}
+.prio-must {
+  color: #c2410c;
+  background: rgba(234, 88, 12, 0.12);
+  border: 1px solid rgba(234, 88, 12, 0.28);
+}
+.prio-imp {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+}
+.prio-opt {
+  color: #6b7280;
+  background: rgba(107, 114, 128, 0.1);
+  border: 1px solid rgba(107, 114, 128, 0.24);
+}
+.dark .prio-must {
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.12);
+  border-color: rgba(251, 146, 60, 0.3);
+}
+.dark .prio-imp {
+  color: #7dd3fc;
+  background: rgba(125, 211, 252, 0.1);
+  border-color: rgba(125, 211, 252, 0.26);
+}
+.dark .prio-opt {
+  color: #8b93a3;
+  background: rgba(139, 147, 163, 0.08);
+  border-color: rgba(139, 147, 163, 0.2);
+}
+
+/* 知识点列表更紧凑 */
+.vp-doc ul li {
+  margin: 6px 0;
+}
+.vp-doc ul li > strong {
+  font-weight: 600;
+}
+
+/* 权重视图 */
+.weight-table table {
+  display: table;
+  width: 100%;
+}
+
+/* 首页 hero：避免标题被挤成孤字换行 */
+@media (min-width: 640px) {
+  .VPHero .text {
+    font-size: 38px;
+    line-height: 1.28;
+  }
+}
