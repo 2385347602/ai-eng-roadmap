@@ -4,7 +4,7 @@ layout: home
 hero:
   name: AI 应用工程化
   text: 前端转岗 · 完整知识地图
-  tagline: 24 章 · 986 个知识点 · 160 道面试题 · 3 个实战项目
+  tagline: 25 章 · 1101 个知识点 · 160 道面试题 · 3 个实战项目
   actions:
     - theme: brand
       text: 从第 0 层开始

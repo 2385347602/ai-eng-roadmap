@@ -192,6 +192,18 @@ Agent 最容易翻车的地方不是"不会做"，是"做到一半挂了"。这�
 - **脚本与资源** <span class="prio prio-imp">重要</span> — Skill 可以带可执行脚本，但要声明依赖和权限。
 - **版本与测试** <span class="prio prio-imp">重要</span> — Skill 改了要回归测试，否则会静默失效。
 
+## 行业黑话对照（听到别慌）
+
+2025 年之后冒出一批新词，**内容你都在这章学过，但词不认识会显得脱节**。面试官很可能直接用这些词提问。
+
+- **Harness Engineering（脚手架工程）** <span class="prio prio-must">必须</span> — 给 Agent 搭的那套外部结构：工具集、状态管理、checkpoint、审批点、失败重试、验证回路。**就是本章"用工程手段把不确定性关进笼子"那件事，行业给它单独立了个名**。核心洞察是：**瓶颈不在模型，在脚手架**。
+- **Loop Engineering（循环工程）** <span class="prio prio-must">必须</span> — 设计 Agent 的迭代循环：每步看什么、能调什么、什么算成功、什么时候停。**等于 ReAct 循环 + 终止条件 + 无进展检测**。指标是"收敛速度"和"不收敛时的止损"。
+- **Agentic Workflow** <span class="prio prio-imp">重要</span> — 工作流里嵌 Agent 节点，而不是全自主。**这是目前生产环境的主流形态**，对应上面 12 种编排模式的组合。
+- **Context Engineering** <span class="prio prio-imp">重要</span> — 见 [02 · Prompt 与上下文](/guide/02-prompt-context)。行业共识：它比 prompt 措辞更重要。
+- **Spec-driven Development** <span class="prio prio-opt">选学</span> — 先写可执行的规格再让 AI 实现。见 [24 · AI 辅助研发](/guide/24-ai-assisted-dev)。
+- **DeepAgent / 各类"深度"框架** <span class="prio prio-opt">选学</span> — 厂商起的框架名，本质是"规划 + 子 Agent + 文件系统"。**属 LangGraph 同类，理解模式即可，不必专门学品牌**。
+- **应对陌生术语的方法** <span class="prio prio-must">必须</span> — 先问"它对应我已知的哪个模式"。**九成新词是旧概念换了包装**，剩下的才是真新东西。这个能力比背术语值钱。
+
 ## 本章对应的面试题
 
 共 20 题，见 [15 · 面试题库 · E 组](/guide/15-interview#e-agent-20-题)。

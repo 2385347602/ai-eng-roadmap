@@ -40,6 +40,45 @@
 - **限流器** <span class="prio prio-must">必须</span> — 滑动窗口或令牌桶，用 Lua 脚本保证原子性。
 - **幂等键存储** <span class="prio prio-must">必须</span> — `SET idem:xxx 1 NX EX 3600`，成功才写入。
 
+## 消息队列
+
+AI 应用里凡是"超过 30 秒"的活都要走队列：文档索引、批量向量化、长任务 Agent、评测跑批、报表生成。**这一块是后端基本功，前端转岗最容易空。**
+
+- **为什么要 MQ 而不是直接调** <span class="prio prio-must">必须</span> — 三个理由：① 解耦（上传接口不用等索引完成）② 削峰（1000 个文档同时上传，worker 按能力消费）③ 可靠（失败了能重试，进程崩了消息还在）。
+- **Kafka** <span class="prio prio-must">必须</span> — 高吞吐、可回放（按 offset 重读）、多消费者组。**适合事件流、日志、需要重放的场景**。缺点是运维重、延迟不如轻量队列。
+- **RabbitMQ** <span class="prio prio-imp">重要</span> — 路由灵活（exchange / routing key）、延迟低。**适合任务分发**。
+- **Redis Stream / BullMQ** <span class="prio prio-must">必须</span> — 已经有 Redis 就别再引入 Kafka。**BullMQ（Node）是 AI 应用最实际的选择**：延迟任务、重试、优先级、并发控制都有。
+- **云厂商队列（SQS / RocketMQ / Pulsar）** <span class="prio prio-imp">重要</span> — 免运维。国内 ToB 项目常见 RocketMQ。
+- **至少一次 vs 最多一次 vs 恰好一次** <span class="prio prio-must">必须</span> — 现实里几乎都是**至少一次（at-least-once）**，所以**消费端必须幂等**。这是最重要的一条。
+- **消费幂等** <span class="prio prio-must">必须</span> — 用业务唯一键（不是消息 ID）去重：`document_id + version`、`task_id + step`。**存一张 `processed_events` 表或 Redis SETNX**。
+- **消息顺序** <span class="prio prio-imp">重要</span> — 全局有序代价极高。**做法：按业务键分区（Kafka partition key / RabbitMQ 单队列单消费者），保证"同一个文档的消息有序"就够**。
+- **死信队列（DLQ）** <span class="prio prio-must">必须</span> — 重试 N 次仍失败的消息进 DLQ，人工处理。**没有 DLQ，坏消息会永远卡住队列**。
+- **重试与退避** <span class="prio prio-must">必须</span> — 指数退避 + 抖动。**别用固定间隔重试**，会把下游打死。
+- **积压监控** <span class="prio prio-must">必须</span> — 队列长度、消费速率、最老消息年龄。**这三个指标是"系统快挂了"的最早信号**。
+- **事务消息 / Outbox 模式** <span class="prio prio-must">必须</span> — "写库成功但发消息失败"是经典不一致。**解法：在同一个事务里写业务表和 outbox 表，另一个进程轮询 outbox 发消息**。这是最可靠的方案。
+- **延迟队列** <span class="prio prio-imp">重要</span> — 定时任务、超时取消、重试等待。Redis ZSet 或 BullMQ 的 delayed job。
+- **优先级队列** <span class="prio prio-imp">重要</span> — 付费用户的索引任务插队。**别用一个队列混着跑**，分高/低优先级两个队列。
+- **可见性超时（Visibility Timeout）** <span class="prio prio-imp">重要</span> — 消费者拿走消息后如果崩溃，消息要能重新可见。**超时设太短会重复消费，太长会卡住**。
+- **本地开发怎么跑** <span class="prio prio-imp">重要</span> — `docker compose up redis` 起 BullMQ 就够。**别为了本地跑通装一整套 Kafka**。
+
+## 高并发设计（面试必问）
+
+不是"能扛多少 QPS"，是"**在有限资源下，怎么让关键请求不被非关键请求拖死**"。
+
+- **先算账再优化** <span class="prio prio-must">必须</span> — QPS × 平均耗时 = 并发数（利特尔法则）。100 QPS × 2 秒 = 需要 200 并发。**算不出来就别谈优化**。
+- **瓶颈定位顺序** <span class="prio prio-must">必须</span> — 数据库连接池 → 下游 API 限流 → CPU → 内存 → 磁盘 IO → 网络。**AI 应用九成瓶颈在"等下游模型"，不在自己的代码**。
+- **连接池** <span class="prio prio-must">必须</span> — 池大小不是越大越好。**PG 连接数超过 CPU 核数×2~4 后性能反降**。必须设上限 + 排队超时。
+- **异步化** <span class="prio prio-must">必须</span> — 能不等就不等。发通知、写日志、算统计全扔队列。**这是提升并发最便宜的手段**。
+- **缓存三层** <span class="prio prio-must">必须</span> — 本地内存（进程内，最快但一致性问题）→ Redis（跨实例）→ CDN / 静态。**热点数据放本地，共享数据放 Redis**。
+- **读写分离** <span class="prio prio-imp">重要</span> — 读多写少的场景。**注意主从延迟**——写完立刻读可能读不到。
+- **分页与游标** <span class="prio prio-must">必须</span> — `OFFSET 100000` 会扫 10 万行。**用游标（`WHERE id > last_id`）**。消息列表、日志列表必用。
+- **限流的位置** <span class="prio prio-must">必须</span> — 网关层做粗限流（按 IP/租户），应用层做细限流（按功能/模型）。**只做一层一定漏**。
+- **背压（Backpressure）** <span class="prio prio-must">必须</span> — 下游扛不住时要主动降速或拒绝，**不能让请求在内存里堆到 OOM**。
+- **隔离（舱壁）** <span class="prio prio-must">必须</span> — 不同租户/功能用独立连接池和线程池。见 [10 · 架构](/guide/10-architecture)。
+- **压测** <span class="prio prio-must">必须</span> — k6 / autocannon / wrk。**必须压到系统崩，才知道拐点在哪**。只压到"看起来正常"没有意义。
+- **慢查询与 N+1** <span class="prio prio-must">必须</span> — 一个列表接口发出 100 条 SQL 是最常见的性能事故。**用 `EXPLAIN` 看执行计划，别猜**。
+- **"降级"比"优化"更有效** <span class="prio prio-imp">重要</span> — 高峰期关掉非核心功能（推荐、富文本、图片生成），比花两周优化 SQL 见效快。
+
 ## AI 专属数据模型
 
 这是本章最有价值的部分。下面是一套能支撑真实产品的表设计，**面试时能画出来就是加分项**。

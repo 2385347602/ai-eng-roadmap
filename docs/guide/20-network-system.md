@@ -47,6 +47,36 @@
 - **资源限制** <span class="prio prio-imp">重要</span> — `--memory` / `--cpus`。不限制的话一个容器能把宿主机拖死。
 - **compose 编排本地栈** <span class="prio prio-must">必须</span> — app + postgres + redis + nginx 一键起。**这是你交付项目的标配。**
 
+## Kubernetes（会用即可，不必会运维）
+
+面试写"熟悉 K8s"会被追问，写"能写 Deployment、会看 Pod 日志"更安全。**目标是"能上线、能排障"，不是"能搭集群"。**
+
+- **Pod / Deployment / Service 三件套** <span class="prio prio-must">必须</span> — Pod 是最小单位，Deployment 管副本与滚动更新，Service 给 Pod 一个稳定入口。**这三者的关系必须能画出来**。
+- **Ingress** <span class="prio prio-imp">重要</span> — 外部流量入口，本质是 Nginx/Traefik 的配置抽象。**SSE 的 `proxy_buffering off` 要写在 Ingress 的 annotation 里**，这是 AI 应用上 K8s 最容易漏的一条。
+- **ConfigMap / Secret** <span class="prio prio-must">必须</span> — 配置与密钥分离。**Secret 默认只是 base64，不是加密**，要用 KMS 或 external-secrets。
+- **资源 requests / limits** <span class="prio prio-must">必须</span> — requests 决定调度，limits 决定上限。**limits 设得比 requests 高太多会导致节点过载**。
+- **liveness / readiness / startup 探针** <span class="prio prio-must">必须</span> — liveness 失败重启，readiness 失败摘流量，startup 用于慢启动。**AI 服务启动要加载模型，必须配 startupProbe，否则会被反复重启**。
+- **滚动更新与回滚** <span class="prio prio-must">必须</span> — `maxSurge` / `maxUnavailable`，`kubectl rollout undo`。**没有回滚方案就不要上线**。
+- **HPA 自动扩缩** <span class="prio prio-imp">重要</span> — 按 CPU/内存/QPS 扩。**LLM 服务扩 Pod 没用**（瓶颈在模型侧），要扩的是 worker。
+- **持久卷 PVC** <span class="prio prio-imp">重要</span> — 有状态服务要挂卷。**AI 应用尽量无状态，状态放 PG/对象存储**。
+- **看日志与进容器** <span class="prio prio-must">必须</span> — `kubectl logs -f`、`kubectl exec -it`、`kubectl describe pod`（看 Events）。**`describe` 是排障第一命令**，镜像拉取失败、探针失败、OOMKilled 都在这里。
+- **GPU 调度** <span class="prio prio-opt">选学</span> — 自部署模型才需要。device plugin、节点亲和、GPU 共享。
+- **不要自己搭集群** <span class="prio prio-must">必须</span> — 用云托管（ACK/TKE/EKS）或 Serverless 容器。**自建 K8s 是专职岗位，不是应用工程师的活**。
+
+## DevOps 与交付流水线
+
+- **CI/CD 的最小闭环** <span class="prio prio-must">必须</span> — push → lint → 单测 → 构建镜像 → 推送仓库 → 部署到 staging → 冒烟测试 → 手动批准 → 生产。**能画出这条链就够**。
+- **流水线要跑什么** <span class="prio prio-must">必须</span> — 类型检查、lint、单测、构建。**AI 应用额外加一条：prompt 回归测试**（见 [07 · 评测](/guide/07-evals)）。
+- **构建缓存** <span class="prio prio-imp">重要</span> — 依赖层单独一层，代码层后置。**没有缓存时一次构建 8 分钟，有缓存 40 秒**，差别决定你一天能提交几次。
+- **环境一致性** <span class="prio prio-must">必须</span> — 同一个镜像跑遍 dev/staging/prod，差异只在配置。**"测试环境好的，生产不行"九成是环境不一致**。
+- **数据库迁移** <span class="prio prio-must">必须</span> — 迁移脚本进仓库、随版本执行、**必须可回滚或向前兼容**。禁止手工改生产库。
+- **灰度与特性开关** <span class="prio prio-must">必须</span> — 新 prompt / 新模型按用户比例放量。**开关是"秒级止损"的唯一手段**。
+- **制品与版本号** <span class="prio prio-must">必须</span> — 镜像 tag 用 git commit sha，**永远不要用 `latest`**。出问题要能定位到确切代码。
+- **密钥注入** <span class="prio prio-must">必须</span> — 走 CI 的 secret 管理或 KMS，**不要写进 Dockerfile、不要进镜像层**。
+- **监控告警** <span class="prio prio-must">必须</span> — 见 [08 · 可观测](/guide/08-observability)。**告警要能叫醒人，也要能不叫醒人**——只报"需要人做决定"的事。
+- **日常运维清单** <span class="prio prio-imp">重要</span> — 磁盘、证书到期、备份是否成功、队列积压、慢查询 Top10。**做成每日巡检脚本，别靠记忆**。
+- **审计日志** <span class="prio prio-imp">重要</span> — 谁在什么时候部署了什么、改了哪个配置。**合规要求，也是事故复盘的依据**。
+
 ## 分布式基础（够用就行）
 
 - **幂等** <span class="prio prio-must">必须</span> — 同一个请求执行多次结果相同。实现：幂等键 + 唯一约束 / 状态机判断。**AI 场景的重试、超时重发都依赖它。**

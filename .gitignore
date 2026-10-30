@@ -4,8 +4,12 @@ docs/.vitepress/cache
 docs/.vitepress/dist
 docs/.vitepress/site-build
 docs/.vitepress/build-v3
+docs/.vitepress/build-v4
 .DS_Store
 *.log
 .idea
 .vscode/*
 !.vscode/extensions.json
+
+# 本地保留但不提交（PAT 缺 workflow scope）
+.github/workflows/
