@@ -158,6 +158,15 @@ import { lesson25 } from '../.vitepress/theme/course/lesson-25'
 
 > 注意：构建产物目录每次要换新名（`docs/.vitepress/build-vN`）。本机有 safe-delete 保护，复用同名目录会失败。
 
+**当 `github.com:443` 被网络干扰、但 `api.github.com` 还通时**，`git push` 会一直超时。这时走 Git Data API 发布：
+
+```bash
+TOKEN=$(printf "protocol=https\nhost=github.com\n\n" | git credential fill | grep '^password=' | cut -d= -f2-)
+GH_TOKEN=$TOKEN node scripts/deploy-api.mjs docs/.vitepress/build-vN
+```
+
+它用 blob → tree → commit → 移动 ref 的方式一次性替换整棵文件树，效果等价于强制推送。
+
 想改成 push 即自动发布，需要换一个带 **`workflow`** scope 的 token，然后把 `.github/workflows/deploy.yml` 提交上去，仓库 Settings → Pages → Source 改成 GitHub Actions。
 
 ## 已知边界
