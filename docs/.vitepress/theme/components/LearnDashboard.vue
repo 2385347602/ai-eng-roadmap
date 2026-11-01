@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { withBase } from 'vitepress'
-import { modules, readyLessons } from '../course/curriculum'
+import { modules, lessons, readyLessons } from '../course/curriculum'
 import {
   loadProgress,
   state,
@@ -27,21 +27,37 @@ const groups = computed(() => {
   return [...map.entries()].map(([name, items]) => ({ name, items }))
 })
 
-const first = readyLessons[0]
+/** 学过的课，按最近一次学习时间倒序 */
+const touched = computed(() => {
+  if (!ready.value) return []
+  return readyLessons
+    .filter((l) => {
+      const s = state.lessons[l.id]
+      return s && (s.stepsDone.length > 0 || s.mastered || !!s.test)
+    })
+    .sort((a, b) => (state.lessons[b.id]?.lastAt ?? '').localeCompare(state.lessons[a.id]?.lastAt ?? ''))
+})
 
-const firstState = computed(() => (ready.value && first ? lessonState(first.id) : null))
-const firstProgress = computed(() =>
-  ready.value && first ? lessonProgress(first.id, first.steps.length) : 0,
+/** 继续学习：最近学过的那节；从没学过就回到第一课 */
+const current = computed(() => touched.value[0] ?? readyLessons[0])
+
+const curState = computed(() => (ready.value && current.value ? lessonState(current.value.id) : null))
+const curProgress = computed(() =>
+  ready.value && current.value ? lessonProgress(current.value.id, current.value.steps.length) : 0,
 )
-const firstEx = computed(() =>
-  ready.value && first
-    ? exerciseStats(first.id, first.exercises.map((e) => e.id))
+const curEx = computed(() =>
+  ready.value && current.value
+    ? exerciseStats(current.value.id, current.value.exercises.map((e) => e.id))
     : { done: 0, correct: 0, total: 0 },
 )
-const started = computed(() => (firstState.value?.stepsDone.length ?? 0) > 0)
-const mastered = computed(() => firstState.value?.mastered ?? false)
+const started = computed(() => (curState.value?.stepsDone.length ?? 0) > 0)
+const mastered = computed(() => curState.value?.mastered ?? false)
 
 const readyCount = computed(() => modules.filter((m) => m.status === 'ready').length)
+
+function lessonOf(id: string) {
+  return lessons[id]
+}
 
 function fmtTime(iso: string | null | undefined) {
   if (!iso) return ''
@@ -53,31 +69,31 @@ function fmtTime(iso: string | null | undefined) {
 <template>
   <div class="dash">
     <!-- 继续学习 -->
-    <section v-if="first" class="dash-hero">
+    <section v-if="current" class="dash-hero">
       <div class="dash-hero-left">
         <div class="dash-tag">{{ started ? (mastered ? '已掌握，可重做' : '继续学习') : '从这里开始' }}</div>
-        <h2 class="dash-hero-title">{{ first.title }}</h2>
-        <p class="dash-hero-sub">{{ first.subtitle }}</p>
+        <h2 class="dash-hero-title">{{ current.title }}</h2>
+        <p class="dash-hero-sub">{{ current.subtitle }}</p>
         <div class="dash-hero-meta">
-          第 {{ first.order }} 课 · {{ first.level }} · 约 {{ first.minutes }} 分钟 ·
-          {{ first.steps.length }} 步 · {{ first.exercises.length }} 个练习 ·
-          {{ first.test.questions.length }} 题测试
+          第 {{ current.order }} 课 · {{ current.level }} · 约 {{ current.minutes }} 分钟 ·
+          {{ current.steps.length }} 步 · {{ current.exercises.length }} 个练习 ·
+          {{ current.test.questions.length }} 题测试
         </div>
         <div class="dash-hero-bar">
-          <div class="dash-hero-bar-in" :style="{ width: firstProgress + '%' }" />
+          <div class="dash-hero-bar-in" :style="{ width: curProgress + '%' }" />
         </div>
         <div class="dash-hero-status">
-          正文 {{ firstState?.stepsDone.length ?? 0 }}/{{ first.steps.length }} 步 ·
-          练习 {{ firstEx.correct }}/{{ firstEx.total }} 通过
-          <span v-if="firstState?.lastAt"> · 上次学习 {{ fmtTime(firstState.lastAt) }}</span>
+          正文 {{ curState?.stepsDone.length ?? 0 }}/{{ current.steps.length }} 步 ·
+          练习 {{ curEx.correct }}/{{ curEx.total }} 通过
+          <span v-if="curState?.lastAt"> · 上次学习 {{ fmtTime(curState.lastAt) }}</span>
         </div>
-        <a class="dash-cta" :href="withBase('/learn/01-http-lifecycle')">
+        <a class="dash-cta" :href="withBase(current.path)">
           {{ started ? (mastered ? '重新打开这一课' : '继续学习 →') : '开始学习 →' }}
         </a>
       </div>
       <div class="dash-hero-right">
         <div class="dash-metric">
-          <span class="dash-metric-num">{{ stats.mastered }}</span>
+          <span class="dash-metric-num">{{ stats.mastered }}<small>/24</small></span>
           <span class="dash-metric-label">已掌握课程</span>
         </div>
         <div class="dash-metric">
@@ -112,9 +128,9 @@ function fmtTime(iso: string | null | undefined) {
     <!-- 模块列表 -->
     <section class="dash-mods">
       <div class="dash-sec-head">
-        <h3>24 个模块</h3>
+        <h3>{{ modules.length }} 个模块 · {{ readyLessons.length }} 节课</h3>
         <span class="dash-sec-note">
-          已有交互课程 {{ readyCount }} 个 · 其余模块先给知识地图章节，不拿空壳课充数
+          全部 {{ readyCount }} 个模块都有完整交互课程 · 每个模块另附知识地图参考章节
         </span>
       </div>
 
@@ -134,8 +150,13 @@ function fmtTime(iso: string | null | undefined) {
             </div>
             <p class="dash-mod-goal">{{ m.goal }}</p>
             <div class="dash-mod-links">
-              <a v-for="l in m.lessons" :key="l" :href="withBase('/learn/01-http-lifecycle')" class="dash-mod-lesson">
-                进入课程 →
+              <a
+                v-for="l in m.lessons"
+                :key="l"
+                :href="withBase(lessonOf(l)?.path ?? '/learn/')"
+                class="dash-mod-lesson"
+              >
+                第 {{ lessonOf(l)?.order }} 课 · 进入课程 →
               </a>
               <a v-for="(r, i) in m.refs" :key="i" :href="withBase(r.link)" class="dash-mod-ref">
                 {{ r.text }}

@@ -13,6 +13,7 @@ export const lesson01: Lesson = {
   id: 'L01',
   moduleId: 'node',
   order: 1,
+  path: '/learn/01-http-lifecycle',
   title: '从 Vue 前端到 Node.js 后端：一次 HTTP 请求的完整生命周期',
   subtitle: '你写了三年 fetch，但从来没看过它在网络上长什么样。这一课把黑盒拆开。',
   minutes: 75,

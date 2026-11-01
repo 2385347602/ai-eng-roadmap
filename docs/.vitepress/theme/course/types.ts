@@ -123,6 +123,8 @@ export interface Lesson {
   /** 所属模块 id，对应 curriculum.ts */
   moduleId: string
   order: number
+  /** 站点路径，不带 base。用于上一课/下一课、错题本回跳 */
+  path: string
   title: string
   subtitle: string
   minutes: number

@@ -48,8 +48,61 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: '学习中心', link: '/learn/' },
-          { text: '第 1 课 · HTTP 请求生命周期', link: '/learn/01-http-lifecycle' },
           { text: '错题本与笔记', link: '/learn/review' },
+        ],
+      },
+      {
+        text: '课程 A · 工程底座',
+        collapsed: false,
+        items: [
+          { text: '01 HTTP 请求生命周期', link: '/learn/01-http-lifecycle' },
+          { text: '02 分层与依赖注入', link: '/learn/02-layered-architecture' },
+          { text: '03 数据库与数据建模', link: '/learn/03-database' },
+          { text: '04 TypeScript 类型工程', link: '/learn/04-type-engineering' },
+          { text: '19 Python 与 AI 生态', link: '/learn/19-python' },
+          { text: '20 网络、系统与分布式', link: '/learn/20-network-distributed' },
+        ],
+      },
+      {
+        text: '课程 B · 模型基础',
+        collapsed: true,
+        items: [
+          { text: '05 LLM 基础', link: '/learn/05-llm-basics' },
+          { text: '06 Prompt 与上下文工程', link: '/learn/06-prompt-engineering' },
+          { text: '17 推理与部署', link: '/learn/17-inference' },
+        ],
+      },
+      {
+        text: '课程 C · 核心能力',
+        collapsed: true,
+        items: [
+          { text: '07 RAG 检索增强', link: '/learn/07-rag' },
+          { text: '08 Agent 智能体', link: '/learn/08-agent' },
+          { text: '15 Workflow 编排', link: '/learn/15-workflow' },
+          { text: '16 MCP 与工具协议', link: '/learn/16-mcp' },
+          { text: '13 记忆系统', link: '/learn/13-memory' },
+          { text: '14 多模态', link: '/learn/14-multimodal' },
+        ],
+      },
+      {
+        text: '课程 D · 生产化',
+        collapsed: true,
+        items: [
+          { text: '09 评测与测试', link: '/learn/09-evals' },
+          { text: '10 可观测性', link: '/learn/10-observability' },
+          { text: '11 安全与合规', link: '/learn/11-security' },
+          { text: '12 部署与工程架构', link: '/learn/12-deployment' },
+          { text: '18 成本工程', link: '/learn/18-cost' },
+        ],
+      },
+      {
+        text: '课程 E · 前沿与交付',
+        collapsed: true,
+        items: [
+          { text: '21 AI Coding', link: '/learn/21-ai-coding' },
+          { text: '22 Harness 与 Loop', link: '/learn/22-harness-loop' },
+          { text: '23 企业架构', link: '/learn/23-enterprise' },
+          { text: '24 AI 内容治理', link: '/learn/24-governance' },
         ],
       },
       {

@@ -39,7 +39,8 @@ const notes = computed(() => state.notes)
 const rounds = ['第 1 轮 · 1 天后', '第 2 轮 · 3 天后', '第 3 轮 · 7 天后', '第 4 轮 · 21 天后']
 
 function lessonLink(lessonId: string) {
-  return withBase(lessonId === 'L01' ? '/learn/01-http-lifecycle' : '/learn/')
+  const path = lessons[lessonId]?.path
+  return withBase(path ?? '/learn/')
 }
 
 function lessonTitle(lessonId: string) {

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { withBase } from 'vitepress'
 import type { Lesson } from '../course/types'
+import { neighbors } from '../course/curriculum'
 import BlockView from './BlockView.vue'
 import ExerciseCard from './ExerciseCard.vue'
 import MasteryTest from './MasteryTest.vue'
@@ -22,6 +24,9 @@ const lesson = computed(() => props.lesson)
 const idx = ref(0)
 const step = computed(() => lesson.value.steps[idx.value])
 const total = computed(() => lesson.value.steps.length)
+const nav = computed(() => neighbors(props.lesson.id))
+const prevLesson = computed(() => nav.value.prev)
+const nextLesson = computed(() => nav.value.next)
 
 const ready = ref(false)
 onMounted(() => {
@@ -307,9 +312,28 @@ function fmtMin(ms: number) {
       <div v-if="lesson.further?.length" class="lp-further">
         <div class="lp-side-label">延伸阅读</div>
         <ul>
-          <li v-for="(f, i) in lesson.further" :key="i">{{ f.text }}</li>
+          <li v-for="(f, i) in lesson.further" :key="i">
+            <a v-if="f.link" :href="withBase(f.link)">{{ f.text }}</a>
+            <span v-else>{{ f.text }}</span>
+          </li>
         </ul>
       </div>
+
+      <nav class="lp-nav">
+        <a v-if="prevLesson" class="lp-nav-a prev" :href="withBase(prevLesson.path)">
+          <span class="lp-nav-dir">← 上一课</span>
+          <span class="lp-nav-title">第 {{ prevLesson.order }} 课 · {{ prevLesson.title }}</span>
+        </a>
+        <span v-else class="lp-nav-gap" />
+        <a v-if="nextLesson" class="lp-nav-a next" :href="withBase(nextLesson.path)">
+          <span class="lp-nav-dir">下一课 →</span>
+          <span class="lp-nav-title">第 {{ nextLesson.order }} 课 · {{ nextLesson.title }}</span>
+        </a>
+        <a v-else class="lp-nav-a next" :href="withBase('/learn/')">
+          <span class="lp-nav-dir">全部课程 →</span>
+          <span class="lp-nav-title">回到学习中心，挑下一节</span>
+        </a>
+      </nav>
     </footer>
   </div>
 </template>
@@ -581,6 +605,45 @@ function fmtMin(ms: number) {
 
 .lp-foot { margin-top: 40px; }
 .lp-further ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.9; color: var(--vp-c-text-2); }
+
+.lp-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 34px;
+  padding-top: 22px;
+  border-top: 1px solid var(--vp-c-divider);
+}
+@media (max-width: 720px) {
+  .lp-nav { grid-template-columns: 1fr; }
+}
+.lp-nav-a {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+  text-decoration: none !important;
+  transition: border-color 0.2s;
+  min-width: 0;
+}
+.lp-nav-a:hover { border-color: var(--vp-c-brand-2); }
+.lp-nav-a.next { text-align: right; }
+.lp-nav-dir { font-size: 11.5px; color: var(--vp-c-text-3); }
+.lp-nav-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--vp-c-text-1) !important;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.lp-nav-gap { display: block; }
 
 .lp-all .lp-step-block { padding-bottom: 20px; border-bottom: 1px dashed var(--vp-c-divider); }
 </style>
